@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #070707;
+  color: #e2e8f0;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070707;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00C4CC;
+}
+
+/* Glass Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+}
+
+.glass-hover {
+  transition: all 0.3s ease;
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(0, 196, 204, 0.3);
+  transform: scale(1.02);
+}
+
+/* Glow Effects */
+.glow-text {
+  text-shadow: 0 0 20px rgba(0, 196, 204, 0.4);
+}
+
+.glow-box {
+  box-shadow: 0 0 30px -5px rgba(0, 196, 204, 0.15);
+}
+
+/* Neon Effects */
+.neon-text-cyan {
+  text-shadow: 0 0 10px rgba(0, 245, 255, 0.8), 0 0 20px rgba(0, 245, 255, 0.5);
+}
+
+.neon-text-purple {
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.5);
+}
+
+.neon-text-pink {
+  text-shadow: 0 0 10px rgba(236, 72, 153, 0.8), 0 0 20px rgba(236, 72, 153, 0.5);
+}
+
+.neon-border-cyan {
+  border: 1px solid rgba(0, 245, 255, 0.5);
+  box-shadow: inset 0 0 10px rgba(0, 245, 255, 0.2), 0 0 20px rgba(0, 245, 255, 0.3);
+}
+
+.neon-glow {
+  box-shadow: 0 0 10px rgba(0, 245, 255, 0.8), 0 0 20px rgba(0, 245, 255, 0.5), 0 0 40px rgba(0, 245, 255, 0.3);
+}
+
+.neon-glow-purple {
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3);
+}
+
+/* Utility Classes */
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* Shimmer Animation for Skeletons */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+}
+
+/* Progress Bar Animation */
+@keyframes progress-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-progress-pulse {
+  animation: progress-pulse 2s ease-in-out infinite;
+}

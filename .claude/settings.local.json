@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__docker-mcp__perplexity_research",
+      "mcp__docker-mcp__firecrawl_scrape",
+      "mcp__docker-mcp__firecrawl_map",
+      "Bash(dir:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

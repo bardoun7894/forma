@@ -1,0 +1,245 @@
+import { db } from './firebase';
+import { collection, addDoc, updateDoc, doc, query, where, getDocs, orderBy, Timestamp, getDoc, setDoc } from 'firebase/firestore';
+
+// Types for different data models
+export interface VideoGeneration {
+    id?: string;
+    userId: string;
+    prompt: string;
+    taskId?: string; // Veo API task ID for polling
+    videoUrl: string;
+    thumbnailUrl?: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    errorMessage?: string;
+    model: string; // 'veo3' or 'veo3_fast'
+    aspectRatio?: '16:9' | '9:16';
+    duration: number;
+    creditsUsed: number;
+    createdAt: string;
+    completedAt?: string;
+}
+
+export interface ImageGeneration {
+    id?: string;
+    userId: string;
+    prompt: string;
+    imageUrl: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    model: string; // 'midjourney' or 'nano-banana'
+    creditsUsed: number;
+    createdAt: string;
+    completedAt?: string;
+}
+
+export interface AvatarGeneration {
+    id?: string;
+    userId: string;
+    prompt: string;
+    avatarUrl: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    creditsUsed: number;
+    createdAt: string;
+    completedAt?: string;
+}
+
+export interface ChatMessage {
+    id?: string;
+    userId: string;
+    sessionId: string;
+    role: 'user' | 'assistant';
+    content: string;
+    createdAt: string;
+}
+
+export interface Payment {
+    id?: string;
+    userId: string;
+    amount: number;
+    currency: string;
+    credits: number;
+    status: 'pending' | 'completed' | 'failed' | 'refunded';
+    stripePaymentId?: string;
+    createdAt: string;
+}
+
+// Video Generation Functions
+export async function saveVideoGeneration(data: Omit<VideoGeneration, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'videos'), {
+        ...data,
+        createdAt: new Date().toISOString(),
+    });
+    return docRef.id;
+}
+
+export async function updateVideoGeneration(id: string, updates: Partial<VideoGeneration>): Promise<void> {
+    await updateDoc(doc(db, 'videos', id), updates);
+}
+
+export async function getUserVideos(userId: string): Promise<VideoGeneration[]> {
+    const q = query(
+        collection(db, 'videos'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoGeneration));
+}
+
+export async function getVideoByTaskId(taskId: string): Promise<VideoGeneration | null> {
+    const q = query(
+        collection(db, 'videos'),
+        where('taskId', '==', taskId)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    const docSnap = snapshot.docs[0];
+    return { id: docSnap.id, ...docSnap.data() } as VideoGeneration;
+}
+
+export async function getVideoById(id: string): Promise<VideoGeneration | null> {
+    const docRef = doc(db, 'videos', id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+    return { id: docSnap.id, ...docSnap.data() } as VideoGeneration;
+}
+
+export async function getPendingVideos(userId: string): Promise<VideoGeneration[]> {
+    const q = query(
+        collection(db, 'videos'),
+        where('userId', '==', userId),
+        where('status', 'in', ['pending', 'processing'])
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoGeneration));
+}
+
+// Image Generation Functions
+export async function saveImageGeneration(data: Omit<ImageGeneration, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'images'), {
+        ...data,
+        createdAt: new Date().toISOString(),
+    });
+    return docRef.id;
+}
+
+export async function updateImageGeneration(id: string, updates: Partial<ImageGeneration>): Promise<void> {
+    await updateDoc(doc(db, 'images', id), updates);
+}
+
+export async function getUserImages(userId: string): Promise<ImageGeneration[]> {
+    const q = query(
+        collection(db, 'images'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImageGeneration));
+}
+
+// Avatar Generation Functions
+export async function saveAvatarGeneration(data: Omit<AvatarGeneration, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'avatars'), {
+        ...data,
+        createdAt: new Date().toISOString(),
+    });
+    return docRef.id;
+}
+
+export async function getUserAvatars(userId: string): Promise<AvatarGeneration[]> {
+    try {
+        const q = query(
+            collection(db, 'avatars'),
+            where('userId', '==', userId),
+            orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AvatarGeneration));
+    } catch (error) {
+        // If index doesn't exist yet (no avatars created), return empty array
+        console.warn('Avatars query failed (index may not exist yet):', error);
+        return [];
+    }
+}
+
+// Chat Functions
+export async function saveChatMessage(data: Omit<ChatMessage, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'chats'), {
+        ...data,
+        createdAt: new Date().toISOString(),
+    });
+    return docRef.id;
+}
+
+export async function getChatHistory(userId: string, sessionId: string): Promise<ChatMessage[]> {
+    const q = query(
+        collection(db, 'chats'),
+        where('userId', '==', userId),
+        where('sessionId', '==', sessionId),
+        orderBy('createdAt', 'asc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage));
+}
+
+// Payment Functions
+export async function savePayment(data: Omit<Payment, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'payments'), {
+        ...data,
+        createdAt: new Date().toISOString(),
+    });
+    return docRef.id;
+}
+
+export async function getUserPayments(userId: string): Promise<Payment[]> {
+    const q = query(
+        collection(db, 'payments'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+}
+
+// Credit Management
+export async function ensureUserDocument(userId: string, userData?: Partial<any>): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+        // Create a basic user document with default credits
+        await setDoc(userRef, {
+            uid: userId,
+            email: userData?.email || '',
+            displayName: userData?.displayName || '',
+            photoURL: userData?.photoURL || null,
+            credits: 10, // default free credits
+            role: 'user',
+            createdAt: new Date().toISOString(),
+            ...userData,
+        });
+    }
+}
+
+export async function deductCredits(userId: string, amount: number): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+        // If user document doesn't exist, create it with default credits
+        await ensureUserDocument(userId);
+    }
+    const currentCredits = userSnap.exists() ? userSnap.data()?.credits || 0 : 10;
+    await updateDoc(userRef, {
+        credits: Math.max(0, currentCredits - amount),
+    });
+}
+
+export async function addCredits(userId: string, amount: number): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+        await ensureUserDocument(userId);
+    }
+    const currentCredits = userSnap.exists() ? userSnap.data()?.credits || 0 : 10;
+    await updateDoc(userRef, {
+        credits: currentCredits + amount,
+    });
+}

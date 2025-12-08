@@ -1,0 +1,37 @@
+# Environment files
+.env
+.env.local
+.env*.local
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build outputs
+dist/
+build/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+nul
+
+# TypeScript
+*.tsbuildinfo
+
+# Firebase
+.firebase/
