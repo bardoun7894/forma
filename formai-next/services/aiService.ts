@@ -752,11 +752,14 @@ export const generateSoraVideo = async (
     duration: number = 10,
     imageUrl?: string
 ): Promise<string> => {
+    // Sora API expects 'landscape' or 'portrait' instead of '16:9' or '9:16'
+    const soraAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
+
     const body: any = {
         model,
         input: {
             prompt,
-            aspect_ratio: aspectRatio,
+            aspect_ratio: soraAspectRatio,
             duration,
         },
     };
