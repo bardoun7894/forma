@@ -6,7 +6,8 @@
       "mcp__docker-mcp__firecrawl_scrape",
       "mcp__docker-mcp__firecrawl_map",
       "Bash(dir:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
