@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Find user by email
-        const usersSnapshot = await adminDb.collection('users').where('email', '==', email).get();
+        const usersSnapshot = await adminDb().collection('users').where('email', '==', email).get();
 
         if (usersSnapshot.empty) {
             return NextResponse.json({ error: `User with email ${email} not found` }, { status: 404 });
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         const userId = userDoc.id;
 
         // Update role to admin
-        await adminDb.collection('users').doc(userId).update({
+        await adminDb().collection('users').doc(userId).update({
             role: 'admin',
         });
 

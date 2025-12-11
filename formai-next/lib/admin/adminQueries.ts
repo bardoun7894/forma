@@ -64,7 +64,7 @@ export async function getAllUsers(options: {
 }): Promise<{ users: UserDocument[]; total: number }> {
     const { page = 1, limit = 20, search, role, suspended } = options;
 
-    let query = adminDb.collection('users').orderBy('createdAt', 'desc');
+    let query = adminDb().collection('users').orderBy('createdAt', 'desc');
 
     // Get all docs first for filtering (Firestore doesn't support OR queries easily)
     const snapshot = await query.get();
@@ -97,24 +97,24 @@ export async function getAllUsers(options: {
 }
 
 export async function getUserById(userId: string): Promise<UserDocument | null> {
-    const doc = await adminDb.collection('users').doc(userId).get();
+    const doc = await adminDb().collection('users').doc(userId).get();
     if (!doc.exists) return null;
     return { ...doc.data(), uid: doc.id } as UserDocument;
 }
 
 export async function updateUser(userId: string, updates: Partial<UserDocument>): Promise<void> {
-    await adminDb.collection('users').doc(userId).update(updates);
+    await adminDb().collection('users').doc(userId).update(updates);
 }
 
 export async function deleteUser(userId: string): Promise<void> {
     // Delete user document
-    await adminDb.collection('users').doc(userId).delete();
+    await adminDb().collection('users').doc(userId).delete();
 
     // Optionally delete related content (videos, images, avatars)
     const collections = ['videos', 'images', 'avatars', 'chats'];
     for (const collectionName of collections) {
-        const docs = await adminDb.collection(collectionName).where('userId', '==', userId).get();
-        const batch = adminDb.batch();
+        const docs = await adminDb().collection(collectionName).where('userId', '==', userId).get();
+        const batch = adminDb().batch();
         docs.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
     }
@@ -125,9 +125,9 @@ export async function adjustUserCredits(
     amount: number,
     adminUid: string,
     reason: string,
-    type: 'adjustment' | 'manual' = 'adjustment'
+    type: 'adjustment' | 'manual' | 'refund' = 'adjustment'
 ): Promise<number> {
-    const userRef = adminDb.collection('users').doc(userId);
+    const userRef = adminDb().collection('users').doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -141,7 +141,7 @@ export async function adjustUserCredits(
     await userRef.update({ credits: newCredits });
 
     // Log transaction
-    await adminDb.collection('users').doc(userId).collection('creditTransactions').add({
+    await adminDb().collection('users').doc(userId).collection('creditTransactions').add({
         amount,
         type,
         adjustedBy: adminUid,
@@ -153,11 +153,11 @@ export async function adjustUserCredits(
 }
 
 export async function updateUserRole(userId: string, role: 'admin' | 'user'): Promise<void> {
-    await adminDb.collection('users').doc(userId).update({ role });
+    await adminDb().collection('users').doc(userId).update({ role });
 }
 
 export async function suspendUser(userId: string, reason: string): Promise<void> {
-    await adminDb.collection('users').doc(userId).update({
+    await adminDb().collection('users').doc(userId).update({
         suspended: true,
         suspendedAt: Timestamp.now(),
         suspendedReason: reason,
@@ -165,7 +165,7 @@ export async function suspendUser(userId: string, reason: string): Promise<void>
 }
 
 export async function unsuspendUser(userId: string): Promise<void> {
-    await adminDb.collection('users').doc(userId).update({
+    await adminDb().collection('users').doc(userId).update({
         suspended: false,
         suspendedAt: null,
         suspendedReason: null,
@@ -186,7 +186,7 @@ export async function getAllContent(options: {
     let allItems: ContentItem[] = [];
 
     for (const collectionName of collections) {
-        let query = adminDb.collection(collectionName).orderBy('createdAt', 'desc');
+        let query = adminDb().collection(collectionName).orderBy('createdAt', 'desc');
 
         if (userId) {
             query = query.where('userId', '==', userId);
@@ -237,7 +237,7 @@ export async function flagContent(
     reason: string
 ): Promise<void> {
     const collectionName = contentType === 'video' ? 'videos' : contentType === 'image' ? 'images' : 'avatars';
-    await adminDb.collection(collectionName).doc(contentId).update({
+    await adminDb().collection(collectionName).doc(contentId).update({
         flagged: true,
         flaggedAt: Timestamp.now(),
         flagReason: reason,
@@ -247,7 +247,7 @@ export async function flagContent(
 
 export async function unflagContent(contentId: string, contentType: 'video' | 'image' | 'avatar'): Promise<void> {
     const collectionName = contentType === 'video' ? 'videos' : contentType === 'image' ? 'images' : 'avatars';
-    await adminDb.collection(collectionName).doc(contentId).update({
+    await adminDb().collection(collectionName).doc(contentId).update({
         flagged: false,
         flaggedAt: null,
         flagReason: null,
@@ -257,7 +257,7 @@ export async function unflagContent(contentId: string, contentType: 'video' | 'i
 
 export async function deleteContent(contentId: string, contentType: 'video' | 'image' | 'avatar'): Promise<void> {
     const collectionName = contentType === 'video' ? 'videos' : contentType === 'image' ? 'images' : 'avatars';
-    await adminDb.collection(collectionName).doc(contentId).delete();
+    await adminDb().collection(collectionName).doc(contentId).delete();
 }
 
 // Payment Queries
@@ -269,7 +269,7 @@ export async function getAllPayments(options: {
 }): Promise<{ payments: PaymentDocument[]; total: number; analytics: PaymentAnalytics }> {
     const { page = 1, limit = 20, status, userId } = options;
 
-    let query = adminDb.collection('payments').orderBy('createdAt', 'desc');
+    let query = adminDb().collection('payments').orderBy('createdAt', 'desc');
 
     if (userId) {
         query = query.where('userId', '==', userId);
@@ -345,7 +345,7 @@ export async function refundPayment(
     adminUid: string,
     reason: string
 ): Promise<void> {
-    const paymentRef = adminDb.collection('payments').doc(paymentId);
+    const paymentRef = adminDb().collection('payments').doc(paymentId);
     const paymentDoc = await paymentRef.get();
 
     if (!paymentDoc.exists) {
@@ -388,7 +388,7 @@ export async function addManualCredits(
     await adjustUserCredits(userId, credits, adminUid, reason, 'manual');
 
     // Create a payment record for tracking
-    await adminDb.collection('payments').add({
+    await adminDb().collection('payments').add({
         userId,
         amount: 0,
         currency: 'EGP',
@@ -413,7 +413,7 @@ export async function getDashboardStats(): Promise<{
     flaggedContent: number;
 }> {
     // Get user stats
-    const usersSnapshot = await adminDb.collection('users').get();
+    const usersSnapshot = await adminDb().collection('users').get();
     const users = usersSnapshot.docs.map(doc => doc.data());
     const totalUsers = users.length;
     const suspendedUsers = users.filter(u => u.suspended).length;
@@ -421,9 +421,9 @@ export async function getDashboardStats(): Promise<{
     const activeUsers = totalUsers - suspendedUsers;
 
     // Get content stats
-    const videosSnapshot = await adminDb.collection('videos').get();
-    const imagesSnapshot = await adminDb.collection('images').get();
-    const avatarsSnapshot = await adminDb.collection('avatars').get();
+    const videosSnapshot = await adminDb().collection('videos').get();
+    const imagesSnapshot = await adminDb().collection('images').get();
+    const avatarsSnapshot = await adminDb().collection('avatars').get();
 
     const totalVideos = videosSnapshot.size;
     const totalImages = imagesSnapshot.size;
@@ -436,7 +436,7 @@ export async function getDashboardStats(): Promise<{
     const flaggedContent = flaggedVideos + flaggedImages + flaggedAvatars;
 
     // Get payment stats
-    const paymentsSnapshot = await adminDb.collection('payments').where('status', '==', 'completed').get();
+    const paymentsSnapshot = await adminDb().collection('payments').where('status', '==', 'completed').get();
     const totalRevenue = paymentsSnapshot.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
 
     return {
@@ -454,7 +454,7 @@ export async function getDashboardStats(): Promise<{
 
 // Get user's credit transactions
 export async function getUserTransactions(userId: string): Promise<CreditTransaction[]> {
-    const snapshot = await adminDb
+    const snapshot = await adminDb()
         .collection('users')
         .doc(userId)
         .collection('creditTransactions')

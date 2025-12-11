@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Initialize Firebase Admin
-if (!getApps().length) {
-    const serviceAccount = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT
-        ? JSON.parse(Buffer.from(process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT, 'base64').toString())
-        : {
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        };
-
-    initializeApp({
-        credential: cert(serviceAccount),
-    });
-}
-
-const db = getFirestore();
+import { adminDb } from '@/lib/firebase-admin';
 
 // Credit pack mapping
 const CREDIT_PACKS: Record<string, number> = {
@@ -117,7 +99,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Update user credits in Firestore
-        const userRef = db.collection('users').doc(userId);
+        const userRef = adminDb().collection('users').doc(userId);
         const userDoc = await userRef.get();
 
         const currentCredits = userDoc.exists ? (userDoc.data()?.credits || 0) : 0;

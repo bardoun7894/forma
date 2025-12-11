@@ -364,7 +364,7 @@ export default function AdminUsersPage() {
                 onClose={() => setDeleteModal({ open: false, user: null })}
                 onConfirm={handleDelete}
                 title={t('confirmDeleteUser')}
-                message={t('deleteUserMessage', { name: deleteModal.user?.displayName || deleteModal.user?.email })}
+                message={t('deleteUserMessage', { name: deleteModal.user?.displayName || deleteModal.user?.email || '' })}
                 confirmText={t('delete')}
                 cancelText={t('cancel')}
                 variant="danger"
@@ -378,8 +378,8 @@ export default function AdminUsersPage() {
                 onConfirm={handleSuspend}
                 title={suspendModal.action === 'suspend' ? t('confirmSuspendUser') : t('confirmUnsuspendUser')}
                 message={suspendModal.action === 'suspend'
-                    ? t('suspendUserMessage', { name: suspendModal.user?.displayName || suspendModal.user?.email })
-                    : t('unsuspendUserMessage', { name: suspendModal.user?.displayName || suspendModal.user?.email })}
+                    ? t('suspendUserMessage', { name: suspendModal.user?.displayName || suspendModal.user?.email || '' })
+                    : t('unsuspendUserMessage', { name: suspendModal.user?.displayName || suspendModal.user?.email || '' })}
                 confirmText={suspendModal.action === 'suspend' ? t('suspend') : t('unsuspend')}
                 cancelText={t('cancel')}
                 variant={suspendModal.action === 'suspend' ? 'danger' : 'primary'}

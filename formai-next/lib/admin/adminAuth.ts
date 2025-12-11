@@ -25,8 +25,8 @@ export async function verifyAdmin(request: NextRequest): Promise<AdminUser> {
     }
 
     try {
-        const decodedToken = await adminAuth.verifyIdToken(token);
-        const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+        const decodedToken = await adminAuth().verifyIdToken(token);
+        const userDoc = await adminDb().collection('users').doc(decodedToken.uid).get();
 
         if (!userDoc.exists) {
             throw new Error('Forbidden');

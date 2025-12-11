@@ -58,7 +58,7 @@ export default function PricingPage() {
                     packId: pack.id,
                     userId: userData.uid,
                     userEmail: userData.email,
-                    userPhone: userData.phoneNumber || undefined,
+                    userPhone: undefined,
                 }),
             });
 
