@@ -7,7 +7,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserVideos, getUserImages, getUserAvatars, updateVideoGeneration, type VideoGeneration, type ImageGeneration, type AvatarGeneration } from '@/lib/database';
+import { getUserVideos, getUserImages, getUserAvatars, updateVideoGeneration, deleteVideo, deleteImage, deleteAvatar, type VideoGeneration, type ImageGeneration, type AvatarGeneration } from '@/lib/database';
 import { pollVideoStatus } from '@/services/aiService';
 import {
     Search,
@@ -49,6 +49,15 @@ export default function LibraryPage() {
                     getUserAvatars(userData.uid),
                 ]);
 
+                console.log('Library fetch results:', {
+                    videos: videos.length,
+                    images: images.length,
+                    avatars: avatars.length,
+                    videoDetails: videos.map(v => ({ id: v.id, status: v.status, hasUrl: !!v.videoUrl })),
+                    imageDetails: images.map(i => ({ id: i.id, status: i.status, hasUrl: !!i.imageUrl })),
+                    avatarDetails: avatars.map(a => ({ id: a.id, status: a.status, hasUrl: !!a.avatarUrl })),
+                });
+
                 // For videos with taskId but no videoUrl, try to fetch the URL
                 const videosWithUrls = await Promise.all(
                     videos.map(async (v) => {
@@ -80,6 +89,7 @@ export default function LibraryPage() {
                         model: v.model,
                         createdAt: new Date(v.createdAt),
                         status: v.status,
+                        source: 'videos' as const,
                     }));
 
                 const imageResults: GenerationResult[] = images
@@ -92,17 +102,19 @@ export default function LibraryPage() {
                         model: i.model,
                         createdAt: new Date(i.createdAt),
                         status: i.status,
+                        source: 'images' as const,
                     }));
 
                 const avatarResults: GenerationResult[] = avatars
                     .filter(a => a.status === 'completed' && a.avatarUrl)
                     .map(a => ({
                         id: a.id || '',
-                        type: 'video' as const, // Avatar videos are displayed as video type
+                        type: (a.type === 'video' ? 'video' : 'image') as 'video' | 'image', // Use actual type from avatar
                         url: a.avatarUrl,
                         prompt: a.prompt,
                         createdAt: new Date(a.createdAt),
                         status: a.status,
+                        source: 'avatars' as const,
                     }));
 
                 // Combine and sort by date (newest first)
@@ -120,10 +132,21 @@ export default function LibraryPage() {
         fetchGenerations();
     }, [userData?.uid]);
 
-    const handleDelete = (id: string) => {
-        // For now, just remove from local state
-        // TODO: Add Firebase delete function
-        setGenerations(prev => prev.filter(g => g.id !== id));
+    const handleDelete = async (id: string, source?: 'videos' | 'images' | 'avatars') => {
+        try {
+            // Delete from database based on source
+            if (source === 'videos') {
+                await deleteVideo(id);
+            } else if (source === 'images') {
+                await deleteImage(id);
+            } else if (source === 'avatars') {
+                await deleteAvatar(id);
+            }
+            // Remove from local state
+            setGenerations(prev => prev.filter(g => g.id !== id));
+        } catch (error) {
+            console.error('Failed to delete item:', error);
+        }
     };
 
     return (
@@ -143,7 +166,7 @@ export default function LibraryPage() {
 
 interface LibraryContentProps {
     generations: GenerationResult[];
-    onDelete: (id: string) => void;
+    onDelete: (id: string, source?: 'videos' | 'images' | 'avatars') => void;
     isLoading?: boolean;
 }
 
@@ -297,7 +320,7 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                                     {getTypeIcon(item.type)}
                                                 </span>
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                                                    onClick={(e) => { e.stopPropagation(); onDelete(item.id, item.source); }}
                                                     className="p-1.5 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
@@ -372,7 +395,7 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                                         </button>
                                                         <button
                                                             className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-md"
-                                                            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                                                            onClick={(e) => { e.stopPropagation(); onDelete(item.id, item.source); }}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -475,7 +498,7 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                 <Button
                                     variant="danger"
                                     className="flex-none px-3"
-                                    onClick={() => { onDelete(selectedItem.id); setSelectedItem(null); }}
+                                    onClick={() => { onDelete(selectedItem.id, selectedItem.source); setSelectedItem(null); }}
                                 >
                                     <Trash2 className="w-5 h-5" />
                                 </Button>

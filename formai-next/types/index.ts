@@ -13,6 +13,8 @@ export interface GenerationResult {
     // Additional fields used in library
     createdAt: Date;
     status: 'pending' | 'processing' | 'completed' | 'failed';
+    // Source collection for delete operations
+    source?: 'videos' | 'images' | 'avatars';
 }
 
 export interface User {

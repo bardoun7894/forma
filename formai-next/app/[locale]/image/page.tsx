@@ -7,17 +7,32 @@ import { TextArea } from '@/components/ui/TextArea';
 import { Select } from '@/components/ui/Select';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { ModelType, CREDIT_COSTS } from '@/types';
-import { generateImage, generateImageToImage, generateImageUnified, getModelCreditCost, enhancePrompt } from '@/services/aiService';
+import { generateImageUnified, getModelCreditCost, enhancePrompt } from '@/services/aiService';
 import { Sparkles, Image as ImageIcon, Download, AlertCircle, Maximize2, Upload, X, Wand2, Layers } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
-import { deductCredits as deductCreditsFirebase } from '@/lib/database';
+import { deductCredits as deductCreditsFirebase, saveImageGeneration } from '@/lib/database';
 
 export default function ImagePage() {
     const { userData, refreshUserData } = useAuth();
 
-    const handleGenerateComplete = (url: string, prompt: string, type: 'image') => {
-        console.log("Generated:", { url, prompt, type });
+    const handleGenerateComplete = async (url: string, prompt: string, model: string, creditsUsed: number) => {
+        // Save to library
+        if (userData?.uid) {
+            try {
+                await saveImageGeneration({
+                    userId: userData.uid,
+                    prompt,
+                    model,
+                    imageUrl: url,
+                    status: 'completed',
+                    creditsUsed,
+                    createdAt: new Date().toISOString(),
+                });
+            } catch (error) {
+                console.error('Failed to save image to library:', error);
+            }
+        }
     };
 
     const deductCredits = async (amount: number): Promise<boolean> => {
@@ -45,7 +60,7 @@ export default function ImagePage() {
 }
 
 interface ImageGenProps {
-    onGenerateComplete: (url: string, prompt: string, type: 'image') => void;
+    onGenerateComplete: (url: string, prompt: string, model: string, creditsUsed: number) => void;
     deductCredits: (amount: number) => Promise<boolean>;
 }
 
@@ -132,7 +147,7 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }
                 // Use unified generator for all models
                 const url = await generateImageUnified(prompt, model);
                 setResultUrl(url);
-                onGenerateComplete(url, prompt, 'image');
+                onGenerateComplete(url, prompt, model, creditCost);
             } catch (err: any) {
                 setError(err.message || t('errorFailedGenerate'));
             } finally {
@@ -154,7 +169,7 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }
                 // Use unified generator with input image
                 const url = await generateImageUnified(prompt, model, '1:1', { inputImage: uploadedImage });
                 setResultUrl(url);
-                onGenerateComplete(url, prompt, 'image');
+                onGenerateComplete(url, prompt, model, img2imgCreditCost);
             } catch (err: any) {
                 setError(err.message || t('errorFailedTransform'));
             } finally {

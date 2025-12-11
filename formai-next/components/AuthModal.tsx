@@ -7,7 +7,7 @@ import { Button } from "./ui/Button";
 import { X, Mail, Lock, User, ArrowRight } from "lucide-react";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 interface AuthModalProps {
@@ -79,16 +79,23 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalProps) {
             const userCredential = await signInWithPopup(auth, provider);
             const user = userCredential.user;
 
-            // Create/update user document in Firestore
-            await setDoc(doc(db, 'users', user.uid), {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-                photoURL: user.photoURL,
-                credits: 10,
-                createdAt: new Date().toISOString(),
-                role: 'user',
-            }, { merge: true });
+            // Only create user document if it doesn't exist (first-time signup)
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (!userDocSnap.exists()) {
+                // New user - create with default credits and role
+                await setDoc(userDocRef, {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName,
+                    photoURL: user.photoURL,
+                    credits: 10,
+                    createdAt: new Date().toISOString(),
+                    role: 'user',
+                });
+            }
+            // Existing users - don't modify anything
 
             toast.success(t('loginSuccess'));
             onAuthSuccess({

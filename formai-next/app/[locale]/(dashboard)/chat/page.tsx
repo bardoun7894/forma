@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
-import { getChatSession } from '@/services/geminiService';
+import { sendChatMessage, type ChatMessage } from '@/services/openaiService';
 import { Button } from '@/components/ui/Button';
 import { IconSend, IconRobot, IconUser, IconLoader } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 // Message type definition
 type Message = {
     id: string;
-    role: 'user' | 'model';
+    role: 'user' | 'assistant';
     content: string;
     timestamp: number;
 };
@@ -23,18 +23,7 @@ export default function ChatPage() {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [chatSession, setChatSession] = useState<any>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    // Initialize chat session on mount
-    useEffect(() => {
-        try {
-            const session = getChatSession();
-            setChatSession(session);
-        } catch (error) {
-            console.error("Failed to init chat:", error);
-        }
-    }, []);
 
     // Auto-scroll to bottom
     const scrollToBottom = () => {
@@ -46,7 +35,7 @@ export default function ChatPage() {
     }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim() || !chatSession || isLoading) return;
+        if (!input.trim() || isLoading) return;
 
         const userMsg: Message = {
             id: Date.now().toString(),
@@ -60,12 +49,17 @@ export default function ChatPage() {
         setIsLoading(true);
 
         try {
-            const result = await chatSession.sendMessage(userMsg.content);
-            const responseText = result.response.text();
+            // Build chat history for OpenAI
+            const chatHistory: ChatMessage[] = [...messages, userMsg].map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.content,
+            }));
+
+            const responseText = await sendChatMessage(chatHistory);
 
             const aiMsg: Message = {
                 id: (Date.now() + 1).toString(),
-                role: 'model',
+                role: 'assistant',
                 content: responseText,
                 timestamp: Date.now(),
             };
@@ -73,7 +67,14 @@ export default function ChatPage() {
             setMessages(prev => [...prev, aiMsg]);
         } catch (error) {
             console.error("Chat error:", error);
-            // Optional: Show error toast
+            // Show error in chat
+            const errorMsg: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: 'Sorry, something went wrong. Please try again.',
+                timestamp: Date.now(),
+            };
+            setMessages(prev => [...prev, errorMsg]);
         } finally {
             setIsLoading(false);
         }
@@ -130,7 +131,7 @@ export default function ChatPage() {
 
                                 {/* Bubble */}
                                 <div className={cn(
-                                    "rounded-2xl px-5 py-3 text-sm md:text-base leading-relaxed",
+                                    "rounded-2xl px-5 py-3 text-sm md:text-base leading-relaxed whitespace-pre-wrap",
                                     msg.role === 'user'
                                         ? "bg-purple-600 text-white rounded-tr-none"
                                         : "bg-white/10 text-slate-200 rounded-tl-none border border-white/5"

@@ -166,11 +166,19 @@ export const generateImage = async (
     return imageUrl;
 };
 
-export const getChatSession = (model: string = ModelType.GEMINI_FLASH) => {
-    return getAI().chats.create({
+export const getChatSession = async (model: string = ModelType.GEMINI_FLASH) => {
+    const session = await getAI().chats.create({
         model: model,
         config: {
             systemInstruction: "You are a professional, creative AI assistant within the FormaAI platform. Your goal is to help users generate content, refine ideas, and provide high-quality text outputs. Keep responses concise unless asked for detailed content.",
         }
     });
+    return session;
+};
+
+// Helper function to send a chat message with proper content format
+export const sendChatMessage = async (chatSession: any, message: string) => {
+    // The @google/genai SDK sendMessage accepts string or content object
+    const result = await chatSession.sendMessage(message);
+    return result;
 };

@@ -155,7 +155,7 @@ const kieRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
 };
 
 // Helper: Poll for task completion (generic jobs API)
-const pollTaskStatus = async (taskId: string, maxAttempts = 60, intervalMs = 5000): Promise<TaskStatusResponse> => {
+const pollTaskStatus = async (taskId: string, maxAttempts = 40, intervalMs = 15000): Promise<TaskStatusResponse> => { // Default: 40 attempts × 15s = 10 min max
     for (let i = 0; i < maxAttempts; i++) {
         const response = await kieRequest<TaskStatusResponse>(`/jobs/recordInfo?taskId=${taskId}`);
 
@@ -778,7 +778,7 @@ export const generateSoraVideo = async (
         throw new Error(`Failed to create Sora video task: ${createResponse.msg}`);
     }
 
-    const taskResult = await pollTaskStatus(createResponse.data.taskId, 120, 10000); // Longer timeout for video
+    const taskResult = await pollTaskStatus(createResponse.data.taskId, 40, 30000); // 40 attempts × 30s = 20 min max (per Kie.ai docs)
     const urls = extractResultUrls(taskResult.resultJson);
 
     if (urls.length === 0) {
@@ -795,7 +795,7 @@ export const generateSoraVideo = async (
 /**
  * Poll Runway task status
  */
-const pollRunwayTaskStatus = async (taskId: string, maxAttempts = 60, intervalMs = 15000): Promise<string[]> => {
+const pollRunwayTaskStatus = async (taskId: string, maxAttempts = 20, intervalMs = 30000): Promise<string[]> => { // 20 attempts × 30s = 10 min max (per Kie.ai docs)
     for (let i = 0; i < maxAttempts; i++) {
         const response = await kieRequest<RunwayStatusResponse>(`/runway/record-detail?taskId=${taskId}`);
 

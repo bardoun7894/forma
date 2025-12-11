@@ -9,7 +9,7 @@ export interface VideoGeneration {
     taskId?: string; // Veo API task ID for polling
     videoUrl: string;
     thumbnailUrl?: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted';
     errorMessage?: string;
     model: string; // 'veo3' or 'veo3_fast'
     aspectRatio?: '16:9' | '9:16';
@@ -17,6 +17,7 @@ export interface VideoGeneration {
     creditsUsed: number;
     createdAt: string;
     completedAt?: string;
+    deletedAt?: string;
 }
 
 export interface ImageGeneration {
@@ -24,11 +25,12 @@ export interface ImageGeneration {
     userId: string;
     prompt: string;
     imageUrl: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted';
     model: string; // 'midjourney' or 'nano-banana'
     creditsUsed: number;
     createdAt: string;
     completedAt?: string;
+    deletedAt?: string;
 }
 
 export interface AvatarGeneration {
@@ -36,10 +38,12 @@ export interface AvatarGeneration {
     userId: string;
     prompt: string;
     avatarUrl: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    type: 'image' | 'video'; // image = portrait, video = talking avatar
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted';
     creditsUsed: number;
     createdAt: string;
     completedAt?: string;
+    deletedAt?: string;
 }
 
 export interface ChatMessage {
@@ -76,13 +80,31 @@ export async function updateVideoGeneration(id: string, updates: Partial<VideoGe
 }
 
 export async function getUserVideos(userId: string): Promise<VideoGeneration[]> {
-    const q = query(
-        collection(db, 'videos'),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoGeneration));
+    try {
+        const q = query(
+            collection(db, 'videos'),
+            where('userId', '==', userId),
+            orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoGeneration));
+    } catch (error) {
+        // If index doesn't exist yet, try without orderBy
+        console.warn('Videos query with orderBy failed, trying without:', error);
+        try {
+            const q = query(
+                collection(db, 'videos'),
+                where('userId', '==', userId)
+            );
+            const snapshot = await getDocs(q);
+            const results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoGeneration));
+            // Sort in memory
+            return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } catch (fallbackError) {
+            console.error('Videos query failed completely:', fallbackError);
+            return [];
+        }
+    }
 }
 
 export async function getVideoByTaskId(taskId: string): Promise<VideoGeneration | null> {
@@ -113,6 +135,13 @@ export async function getPendingVideos(userId: string): Promise<VideoGeneration[
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoGeneration));
 }
 
+export async function deleteVideo(id: string): Promise<void> {
+    await updateDoc(doc(db, 'videos', id), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString(),
+    });
+}
+
 // Image Generation Functions
 export async function saveImageGeneration(data: Omit<ImageGeneration, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'images'), {
@@ -126,14 +155,39 @@ export async function updateImageGeneration(id: string, updates: Partial<ImageGe
     await updateDoc(doc(db, 'images', id), updates);
 }
 
+export async function deleteImage(id: string): Promise<void> {
+    await updateDoc(doc(db, 'images', id), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString(),
+    });
+}
+
 export async function getUserImages(userId: string): Promise<ImageGeneration[]> {
-    const q = query(
-        collection(db, 'images'),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImageGeneration));
+    try {
+        const q = query(
+            collection(db, 'images'),
+            where('userId', '==', userId),
+            orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImageGeneration));
+    } catch (error) {
+        // If index doesn't exist yet, try without orderBy
+        console.warn('Images query with orderBy failed, trying without:', error);
+        try {
+            const q = query(
+                collection(db, 'images'),
+                where('userId', '==', userId)
+            );
+            const snapshot = await getDocs(q);
+            const results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImageGeneration));
+            // Sort in memory
+            return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } catch (fallbackError) {
+            console.error('Images query failed completely:', fallbackError);
+            return [];
+        }
+    }
 }
 
 // Avatar Generation Functions
@@ -143,6 +197,13 @@ export async function saveAvatarGeneration(data: Omit<AvatarGeneration, 'id'>): 
         createdAt: new Date().toISOString(),
     });
     return docRef.id;
+}
+
+export async function deleteAvatar(id: string): Promise<void> {
+    await updateDoc(doc(db, 'avatars', id), {
+        status: 'deleted',
+        deletedAt: new Date().toISOString(),
+    });
 }
 
 export async function getUserAvatars(userId: string): Promise<AvatarGeneration[]> {
@@ -155,9 +216,21 @@ export async function getUserAvatars(userId: string): Promise<AvatarGeneration[]
         const snapshot = await getDocs(q);
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AvatarGeneration));
     } catch (error) {
-        // If index doesn't exist yet (no avatars created), return empty array
-        console.warn('Avatars query failed (index may not exist yet):', error);
-        return [];
+        // If index doesn't exist yet, try without orderBy
+        console.warn('Avatars query with orderBy failed, trying without:', error);
+        try {
+            const q = query(
+                collection(db, 'avatars'),
+                where('userId', '==', userId)
+            );
+            const snapshot = await getDocs(q);
+            const results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AvatarGeneration));
+            // Sort in memory
+            return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } catch (fallbackError) {
+            console.error('Avatars query failed completely:', fallbackError);
+            return [];
+        }
     }
 }
 

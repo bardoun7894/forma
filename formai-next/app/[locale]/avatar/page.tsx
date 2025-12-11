@@ -10,7 +10,7 @@ import { ModelType, CREDIT_COSTS } from '@/types';
 import { Sparkles, User, Upload, Image as ImageIcon, Download, AlertCircle, RefreshCw, X, Video, Mic, Wand2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
-import { deductCredits as deductCreditsFirebase } from '@/lib/database';
+import { deductCredits as deductCreditsFirebase, saveAvatarGeneration } from '@/lib/database';
 
 const STYLES = [
     { id: 'cyberpunk', nameKey: 'styleCyberpunk', prompt: 'Futuristic cyberpunk style, neon lights, high tech clothing, cybernetic enhancements, night city background' },
@@ -28,8 +28,23 @@ export default function AvatarPage() {
     const t = useTranslations('avatar');
     const [mode, setMode] = useState<'image' | 'video'>('image');
 
-    const handleGenerateComplete = (url: string, prompt: string, type: 'image' | 'video') => {
-        console.log("Generated:", { url, prompt, type });
+    const handleGenerateComplete = async (url: string, prompt: string, type: 'image' | 'video', creditsUsed: number) => {
+        // Save to library
+        if (userData?.uid) {
+            try {
+                await saveAvatarGeneration({
+                    userId: userData.uid,
+                    prompt,
+                    avatarUrl: url,
+                    type, // 'image' for portraits, 'video' for talking avatars
+                    status: 'completed',
+                    creditsUsed,
+                    createdAt: new Date().toISOString(),
+                });
+            } catch (error) {
+                console.error('Failed to save avatar to library:', error);
+            }
+        }
     };
 
     const deductCredits = async (amount: number): Promise<boolean> => {
@@ -77,9 +92,9 @@ export default function AvatarPage() {
 
                     {/* Content based on mode */}
                     {mode === 'image' ? (
-                        <AvatarImageGen onGenerateComplete={(url, prompt) => handleGenerateComplete(url, prompt, 'image')} deductCredits={deductCredits} />
+                        <AvatarImageGen onGenerateComplete={(url, prompt, credits) => handleGenerateComplete(url, prompt, 'image', credits)} deductCredits={deductCredits} />
                     ) : (
-                        <AvatarVideoGen onGenerateComplete={(url, prompt) => handleGenerateComplete(url, prompt, 'video')} deductCredits={deductCredits} />
+                        <AvatarVideoGen onGenerateComplete={(url, prompt, credits) => handleGenerateComplete(url, prompt, 'video', credits)} deductCredits={deductCredits} />
                     )}
                 </div>
             </main>
@@ -88,7 +103,7 @@ export default function AvatarPage() {
 }
 
 interface AvatarGenProps {
-    onGenerateComplete: (url: string, prompt: string) => void;
+    onGenerateComplete: (url: string, prompt: string, creditsUsed: number) => void;
     deductCredits: (amount: number) => Promise<boolean>;
 }
 
@@ -185,7 +200,7 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
             setResultUrl(url);
 
             const fullPrompt = `AI Portrait: ${selectedStyleId === 'custom' ? customStyle : activeStyle?.nameKey}`;
-            onGenerateComplete(url, fullPrompt);
+            onGenerateComplete(url, fullPrompt, 5); // 5 credits for image avatar
         } catch (err: any) {
             console.error(err);
             setError(err.message || t('errorFailed'));
@@ -474,7 +489,7 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
             );
 
             setResultUrl(url);
-            onGenerateComplete(url, `Talking Avatar: ${speechText.substring(0, 50)}...`);
+            onGenerateComplete(url, `Talking Avatar: ${speechText.substring(0, 50)}...`, creditCost);
         } catch (err: any) {
             console.error(err);
             setError(err.message || t('errorFailed'));
