@@ -340,6 +340,33 @@ function calculatePaymentAnalytics(payments: PaymentDocument[]): PaymentAnalytic
     };
 }
 
+// Get PayPal access token for refunds
+async function getPayPalAccessToken(): Promise<string> {
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    const baseUrl = process.env.PAYPAL_MODE === 'live'
+        ? 'https://api-m.paypal.com'
+        : 'https://api-m.sandbox.paypal.com';
+
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to get PayPal access token');
+    }
+
+    const data = await response.json();
+    return data.access_token;
+}
+
 export async function refundPayment(
     paymentId: string,
     adminUid: string,
@@ -352,19 +379,63 @@ export async function refundPayment(
         throw new Error('Payment not found');
     }
 
-    const payment = paymentDoc.data() as PaymentDocument;
+    const payment = paymentDoc.data() as PaymentDocument & { paypalCaptureId?: string };
 
     if (payment.status === 'refunded') {
         throw new Error('Payment already refunded');
     }
 
-    // Update payment status
-    await paymentRef.update({
-        status: 'refunded',
-        refundedAt: Timestamp.now(),
-        refundReason: reason,
-        refundedBy: adminUid,
-    });
+    // If this is a PayPal payment with a capture ID, process the refund through PayPal
+    if (payment.paypalCaptureId) {
+        try {
+            const accessToken = await getPayPalAccessToken();
+            const baseUrl = process.env.PAYPAL_MODE === 'live'
+                ? 'https://api-m.paypal.com'
+                : 'https://api-m.sandbox.paypal.com';
+
+            const refundResponse = await fetch(
+                `${baseUrl}/v2/payments/captures/${payment.paypalCaptureId}/refund`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        note_to_payer: reason,
+                    }),
+                }
+            );
+
+            if (!refundResponse.ok) {
+                const errorData = await refundResponse.json().catch(() => ({}));
+                console.error('PayPal refund error:', errorData);
+                throw new Error('Failed to process PayPal refund');
+            }
+
+            const refundData = await refundResponse.json();
+
+            // Update payment status with PayPal refund ID
+            await paymentRef.update({
+                status: 'refunded',
+                refundedAt: Timestamp.now(),
+                refundReason: reason,
+                refundedBy: adminUid,
+                paypalRefundId: refundData.id,
+            });
+        } catch (error) {
+            console.error('PayPal refund failed:', error);
+            throw new Error('Failed to process PayPal refund');
+        }
+    } else {
+        // For manual/non-PayPal payments, just update the status
+        await paymentRef.update({
+            status: 'refunded',
+            refundedAt: Timestamp.now(),
+            refundReason: reason,
+            refundedBy: adminUid,
+        });
+    }
 
     // Deduct credits from user if payment was completed
     if (payment.status === 'completed') {
@@ -391,7 +462,7 @@ export async function addManualCredits(
     await adminDb().collection('payments').add({
         userId,
         amount: 0,
-        currency: 'EGP',
+        currency: 'USD',
         credits,
         status: 'completed',
         createdAt: new Date().toISOString(),

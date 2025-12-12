@@ -234,12 +234,26 @@ export async function getUserAvatars(userId: string): Promise<AvatarGeneration[]
     }
 }
 
+// Chat Session Interface
+export interface ChatSession {
+    id: string;
+    userId: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 // Chat Functions
 export async function saveChatMessage(data: Omit<ChatMessage, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'chats'), {
         ...data,
         createdAt: new Date().toISOString(),
     });
+
+    // Update session's updatedAt
+    const sessionRef = doc(db, 'chatSessions', data.sessionId);
+    await setDoc(sessionRef, { updatedAt: new Date().toISOString() }, { merge: true });
+
     return docRef.id;
 }
 
@@ -252,6 +266,42 @@ export async function getChatHistory(userId: string, sessionId: string): Promise
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage));
+}
+
+export async function createChatSession(userId: string, title: string = 'New Chat'): Promise<string> {
+    const docRef = await addDoc(collection(db, 'chatSessions'), {
+        userId,
+        title,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    });
+    return docRef.id;
+}
+
+export async function getUserChatSessions(userId: string): Promise<ChatSession[]> {
+    const q = query(
+        collection(db, 'chatSessions'),
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatSession));
+}
+
+export async function updateChatSessionTitle(sessionId: string, title: string): Promise<void> {
+    const sessionRef = doc(db, 'chatSessions', sessionId);
+    await setDoc(sessionRef, { title, updatedAt: new Date().toISOString() }, { merge: true });
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+    // Delete all messages in the session
+    const q = query(collection(db, 'chats'), where('sessionId', '==', sessionId));
+    const snapshot = await getDocs(q);
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+
+    // Delete the session
+    await deleteDoc(doc(db, 'chatSessions', sessionId));
 }
 
 // Payment Functions
