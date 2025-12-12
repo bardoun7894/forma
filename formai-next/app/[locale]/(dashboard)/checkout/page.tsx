@@ -64,7 +64,7 @@ const creditPacks: Record<string, CreditPack> = {
 export default function CheckoutPage() {
     const t = useTranslations('checkout');
     const locale = useLocale();
-    const { userData, refreshUser } = useAuth();
+    const { userData, refreshUserData } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const packId = searchParams.get('pack') || 'starter';
@@ -140,8 +140,8 @@ export default function CheckoutPage() {
             if (result.success) {
                 setNewCredits(result.credits);
                 setPaymentSuccess(true);
-                if (refreshUser) {
-                    await refreshUser();
+                if (refreshUserData) {
+                    await refreshUserData();
                 }
             } else {
                 throw new Error(result.error || 'Capture failed');

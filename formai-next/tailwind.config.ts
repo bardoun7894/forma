@@ -41,7 +41,8 @@ export default {
         'neon-glow-pink': '0 0 10px rgba(236, 72, 153, 0.8), 0 0 20px rgba(236, 72, 153, 0.5), 0 0 40px rgba(236, 72, 153, 0.3)',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'Inter', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        arabic: ['var(--font-arabic)', 'Tajawal', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         // Smaller base font sizes per requirements

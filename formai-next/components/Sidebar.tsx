@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useLocale } from "next-intl";
 import { useTranslations } from "next-intl";
@@ -12,11 +13,14 @@ import {
     Folder,
     CreditCard,
     LogOut,
-    Globe
+    Globe,
+    Menu,
+    X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -27,6 +31,7 @@ export function Sidebar() {
     const tAuth = useTranslations('auth');
     const tCommon = useTranslations('common');
     const { userData, signOut } = useAuth();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const navItems = [
         { icon: LayoutDashboard, key: "dashboard", path: "/dashboard" },
@@ -38,14 +43,29 @@ export function Sidebar() {
         { icon: CreditCard, key: "credits", path: "/credits" },
     ];
 
-    return (
-        <aside className="fixed inset-y-0 left-0 rtl:left-auto rtl:right-0 w-72 flex-col border-r border-white/10 rtl:border-r-0 rtl:border-l rtl:border-white/10 bg-page/50 backdrop-blur-xl p-6 z-50 hidden lg:flex">
+    const handleNavClick = (path: string) => {
+        setIsMobileMenuOpen(false);
+        router.push(path);
+    };
+
+    const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
+        <>
             {/* Logo */}
-            <div className="flex items-center gap-2 mb-8 px-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
-                    <span className="font-bold text-black text-lg">F</span>
+            <div className="flex items-center justify-between gap-2 mb-8 px-2">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+                        <span className="font-bold text-black text-lg">F</span>
+                    </div>
+                    <span className="text-xl font-bold tracking-tight text-white">{tCommon('appName')}</span>
                 </div>
-                <span className="text-xl font-bold tracking-tight text-white">{tCommon('appName')}</span>
+                {isMobile && (
+                    <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                        <X className="w-5 h-5 text-white" />
+                    </button>
+                )}
             </div>
 
             {/* Navigation */}
@@ -54,7 +74,21 @@ export function Sidebar() {
                     const isActive = pathname === item.path;
                     const Icon = item.icon;
 
-                    return (
+                    return isMobile ? (
+                        <button
+                            key={item.path}
+                            onClick={() => handleNavClick(item.path)}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                                isActive
+                                    ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-5px_rgba(0,196,204,0.3)]"
+                                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            <Icon className={cn("w-5 h-5", isActive && "text-primary drop-shadow-[0_0_8px_rgba(0,196,204,0.5)]")} />
+                            <span className="font-medium">{tNav(item.key)}</span>
+                        </button>
+                    ) : (
                         <Link
                             key={item.path}
                             href={item.path}
@@ -78,7 +112,10 @@ export function Sidebar() {
                     <div className="text-xs text-gray-400 mb-1">{tDashboard('availableCredits')}</div>
                     <div className="flex items-center justify-between">
                         <span className="text-lg font-bold text-white">{userData?.credits ?? 0}</span>
-                        <Button size="sm" className="h-8 px-3 text-xs" onClick={() => router.push('/credits')}>
+                        <Button size="sm" className="h-8 px-3 text-xs" onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            router.push('/credits');
+                        }}>
                             {tDashboard('buyCredits')}
                         </Button>
                     </div>
@@ -86,6 +123,7 @@ export function Sidebar() {
 
                 <button
                     onClick={() => {
+                        setIsMobileMenuOpen(false);
                         const newLocale = locale === 'ar' ? 'en' : 'ar';
                         router.push(pathname, { locale: newLocale });
                     }}
@@ -96,13 +134,77 @@ export function Sidebar() {
                 </button>
 
                 <button
-                    onClick={signOut}
+                    onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        signOut();
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
                 >
                     <LogOut className="w-5 h-5" />
                     <span className="font-medium">{tAuth('logout')}</span>
                 </button>
             </div>
-        </aside>
+        </>
+    );
+
+    return (
+        <>
+            {/* Desktop Sidebar */}
+            <aside className="fixed inset-y-0 left-0 rtl:left-auto rtl:right-0 w-72 flex-col border-r border-white/10 rtl:border-r-0 rtl:border-l rtl:border-white/10 bg-[#0a0a0f] p-6 z-50 hidden lg:flex">
+                <SidebarContent />
+            </aside>
+
+            {/* Mobile Header */}
+            <div className="fixed top-0 left-0 right-0 h-16 bg-[#0a0a0f] border-b border-white/10 flex items-center justify-between px-4 z-40 lg:hidden">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+                        <span className="font-bold text-black text-lg">F</span>
+                    </div>
+                    <span className="text-lg font-bold tracking-tight text-white">{tCommon('appName')}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <div className="text-xs text-muted">
+                        <span className="text-primary font-semibold">{userData?.credits ?? 0}</span> {tNav('credits')}
+                    </div>
+                    <button
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                        <Menu className="w-6 h-6 text-white" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Mobile Sidebar Overlay */}
+            <AnimatePresence>
+                {isMobileMenuOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="fixed inset-0 bg-black/70 z-50 lg:hidden"
+                        />
+
+                        {/* Sidebar */}
+                        <motion.aside
+                            initial={{ x: locale === 'ar' ? '100%' : '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: locale === 'ar' ? '100%' : '-100%' }}
+                            transition={{ type: 'tween', duration: 0.3 }}
+                            className={cn(
+                                "fixed inset-y-0 w-72 flex flex-col bg-[#0a0a0f] p-6 z-50 lg:hidden",
+                                locale === 'ar' ? "right-0 border-l border-white/10" : "left-0 border-r border-white/10"
+                            )}
+                        >
+                            <SidebarContent isMobile />
+                        </motion.aside>
+                    </>
+                )}
+            </AnimatePresence>
+        </>
     );
 }

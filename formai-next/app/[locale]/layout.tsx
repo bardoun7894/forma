@@ -1,11 +1,22 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
-import { Inter } from 'next/font/google';
+import { Inter, Tajawal } from 'next/font/google';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import '../globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const inter = Inter({
+    subsets: ['latin'],
+    variable: '--font-inter',
+    display: 'swap',
+});
+
+const tajawal = Tajawal({
+    subsets: ['arabic', 'latin'],
+    weight: ['400', '500', '700'],
+    variable: '--font-arabic',
+    display: 'swap',
+});
 
 export default async function LocaleLayout({
     children,
@@ -25,7 +36,7 @@ export default async function LocaleLayout({
 
     return (
         <html lang={locale} dir={direction} className="dark">
-            <body className={`${inter.variable} font-sans antialiased bg-page text-main text-base`}>
+            <body className={`${inter.variable} ${tajawal.variable} ${locale === 'ar' ? 'font-arabic' : 'font-sans'} antialiased bg-page text-main`}>
                 <AuthProvider>
                     <NextIntlClientProvider messages={messages}>
                         {children}

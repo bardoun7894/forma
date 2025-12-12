@@ -16,19 +16,29 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Next.js collects completely anonymous telemetry data about general usage.
+# Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Firebase public config (these are client-side public keys, safe to include)
-ENV NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDXbXlamk0bHz1muBhyYtl2aTZ38J3cjKk
-ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=my-app-3c17b.firebaseapp.com
-ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=my-app-3c17b
-ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=my-app-3c17b.firebasestorage.app
-ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=1052595244864
-ENV NEXT_PUBLIC_FIREBASE_APP_ID=1:1052595244864:web:fba53c6a01a250b59bf4a5
-ENV NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-RDB7N607LY
-# API keys are passed at runtime via docker-compose or environment
-ENV NEXT_PUBLIC_KIE_API_KEY=699c9fad8f427759045e4c61139f1338
+# Build-time environment variables (public keys - safe to include)
+ARG NEXT_PUBLIC_FIREBASE_API_KEY
+ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
+ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+ARG NEXT_PUBLIC_FIREBASE_APP_ID
+ARG NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+ARG NEXT_PUBLIC_KIE_API_KEY
+ARG NEXT_PUBLIC_PAYPAL_CLIENT_ID
+
+ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
+ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
+ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
+ENV NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=$NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+ENV NEXT_PUBLIC_KIE_API_KEY=$NEXT_PUBLIC_KIE_API_KEY
+ENV NEXT_PUBLIC_PAYPAL_CLIENT_ID=$NEXT_PUBLIC_PAYPAL_CLIENT_ID
 
 RUN npm run build
 
@@ -36,9 +46,10 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
+# Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -46,7 +57,13 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# Copy i18n config for next-intl
+COPY --from=builder /app/i18n.ts ./i18n.ts
 COPY --from=builder /app/i18n ./i18n
+
+# Copy messages for translations
+COPY --from=builder /app/messages ./messages
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
@@ -55,7 +72,11 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["node", "server.js"]
