@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, addDoc, updateDoc, doc, query, where, getDocs, orderBy, Timestamp, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, query, where, getDocs, orderBy, Timestamp, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 // Types for different data models
 export interface VideoGeneration {

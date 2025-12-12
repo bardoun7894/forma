@@ -12,7 +12,6 @@ import {
     deleteChatSession,
     updateChatSessionTitle,
     type ChatSession,
-    type ChatMessage as DBChatMessage,
 } from '@/lib/database';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -68,8 +67,8 @@ export default function ChatPage() {
             const userSessions = await getUserChatSessions(userData.uid);
             setSessions(userSessions);
 
-            // Auto-select first session or create new one
-            if (userSessions.length > 0) {
+            // Auto-select first session
+            if (userSessions.length > 0 && !currentSessionId) {
                 selectSession(userSessions[0].id);
             }
         } catch (error) {
