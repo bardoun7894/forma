@@ -21,12 +21,13 @@ export interface ContentItem {
     userId: string;
     prompt: string;
     url: string;
-    status: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted';
     createdAt: string;
     flagged?: boolean;
     flaggedAt?: Timestamp;
     flagReason?: string;
     flaggedBy?: string;
+    errorMessage?: string;
 }
 
 export interface PaymentDocument {
@@ -179,8 +180,9 @@ export async function getAllContent(options: {
     type?: 'video' | 'image' | 'avatar';
     userId?: string;
     flagged?: boolean;
+    status?: 'completed' | 'processing' | 'failed' | 'pending';
 }): Promise<{ items: ContentItem[]; total: number }> {
-    const { page = 1, limit = 20, type, userId, flagged } = options;
+    const { page = 1, limit = 20, type, userId, flagged, status } = options;
 
     const collections = type ? [type === 'video' ? 'videos' : type === 'image' ? 'images' : 'avatars'] : ['videos', 'images', 'avatars'];
     let allItems: ContentItem[] = [];
@@ -200,13 +202,14 @@ export async function getAllContent(options: {
                 type: collectionName === 'videos' ? 'video' : collectionName === 'images' ? 'image' : 'avatar',
                 userId: data.userId,
                 prompt: data.prompt,
-                url: data.videoUrl || data.imageUrl || data.avatarUrl,
-                status: data.status,
+                url: data.videoUrl || data.imageUrl || data.avatarUrl || '',
+                status: data.status || 'completed',
                 createdAt: data.createdAt,
                 flagged: data.flagged || false,
                 flaggedAt: data.flaggedAt,
                 flagReason: data.flagReason,
                 flaggedBy: data.flaggedBy,
+                errorMessage: data.errorMessage,
             } as ContentItem;
         });
 
@@ -217,6 +220,14 @@ export async function getAllContent(options: {
     if (flagged !== undefined) {
         allItems = allItems.filter(item => !!item.flagged === flagged);
     }
+
+    // Filter by status if specified
+    if (status) {
+        allItems = allItems.filter(item => item.status === status);
+    }
+
+    // Filter out deleted items by default
+    allItems = allItems.filter(item => item.status !== 'deleted');
 
     // Sort by date
     allItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

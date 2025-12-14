@@ -51,11 +51,16 @@ interface TaskStatusResponse {
 }
 
 // Veo-specific response structure (different from generic jobs API)
+// Per Kie.ai docs: URLs are at response.resultUrls (primary) and response.originUrls (for non-16:9 aspect ratios)
 interface VeoStatusResponse {
     taskId: string;
     successFlag: 0 | 1 | 2 | 3; // 0=generating, 1=success, 2=failed, 3=generation failed
-    resultUrls?: string; // JSON string of URLs array
+    resultUrls?: string; // Fallback: JSON string of URLs array (may not be present)
     msg?: string;
+    response?: {
+        resultUrls?: string[] | string; // Primary location for video URLs
+        originUrls?: string[] | string; // Available for non-16:9 aspect ratios
+    };
 }
 
 // 4o Image response structure
@@ -177,6 +182,8 @@ const pollVeoTaskStatus = async (taskId: string, maxAttempts = 60, intervalMs = 
     for (let i = 0; i < maxAttempts; i++) {
         const response = await kieRequest<VeoStatusResponse>(`/veo/record-info?taskId=${taskId}`);
 
+        console.log(`Veo poll attempt ${i + 1}/${maxAttempts}, response:`, JSON.stringify(response, null, 2));
+
         if (response.code !== 200) {
             throw new Error(`Veo status check failed: ${response.msg || 'Unknown error'}`);
         }
@@ -185,17 +192,42 @@ const pollVeoTaskStatus = async (taskId: string, maxAttempts = 60, intervalMs = 
 
         // successFlag: 0=generating, 1=success, 2=failed, 3=generation failed
         if (data.successFlag === 1) {
-            // Success - parse the resultUrls JSON string
-            if (data.resultUrls) {
+            // Per Kie.ai docs: URLs are at data.response.resultUrls (primary) and data.response.originUrls (for non-16:9)
+            const responseObj = (data as any).response;
+
+            // Try response.resultUrls first (this is the correct path per API docs)
+            let resultData = responseObj?.resultUrls ||
+                            responseObj?.originUrls ||
+                            // Fallback to other possible paths
+                            data.resultUrls ||
+                            (data as any).resultUrl ||
+                            (data as any).videoUrl ||
+                            (data as any).url;
+
+            console.log('Veo success, responseObj:', JSON.stringify(responseObj, null, 2));
+            console.log('Veo success, resultData:', resultData);
+
+            if (resultData) {
+                // Handle both array and string formats
+                if (Array.isArray(resultData)) {
+                    return resultData;
+                }
                 try {
-                    return JSON.parse(data.resultUrls);
+                    const parsed = JSON.parse(resultData);
+                    if (Array.isArray(parsed)) {
+                        return parsed;
+                    }
+                    return [parsed];
                 } catch {
-                    return [data.resultUrls]; // If not JSON, treat as single URL
+                    return [resultData]; // If not JSON, treat as single URL
                 }
             }
+
+            // Log full response for debugging
+            console.error('Veo success but no URLs found. Full data:', JSON.stringify(data, null, 2));
             throw new Error('Video generated but no URLs returned');
         } else if (data.successFlag === 2 || data.successFlag === 3) {
-            throw new Error(`Video generation failed: ${response.msg || 'Unknown error'}`);
+            throw new Error(`Video generation failed: ${(data as any).msg || response.msg || 'Unknown error'}`);
         }
 
         // Still generating (successFlag === 0), poll again
@@ -319,23 +351,42 @@ export const pollVideoStatus = async (
         if (data.successFlag === 1) {
             let videoUrl = '';
 
-            // Try multiple possible field names for the result URL
-            const resultData = data.resultUrls || (data as any).resultUrl || (data as any).videoUrl || (data as any).url;
+            // Per Kie.ai docs: URLs are at data.response.resultUrls (primary) and data.response.originUrls (for non-16:9)
+            const responseObj = (data as any).response;
+
+            // Try response.resultUrls first (this is the correct path per API docs)
+            let resultData = responseObj?.resultUrls ||
+                            responseObj?.originUrls ||
+                            // Fallback to other possible paths
+                            data.resultUrls ||
+                            (data as any).resultUrl ||
+                            (data as any).videoUrl ||
+                            (data as any).url;
+
+            console.log('Poll status responseObj:', JSON.stringify(responseObj, null, 2));
+            console.log('Poll status resultData:', resultData);
 
             if (resultData) {
-                try {
-                    // Try parsing as JSON array first
-                    const urls = JSON.parse(resultData);
-                    if (Array.isArray(urls)) {
-                        videoUrl = urls[0] || '';
-                    } else if (typeof urls === 'string') {
-                        videoUrl = urls;
-                    } else if (urls.url) {
-                        videoUrl = urls.url;
+                // Handle both array and string formats
+                if (Array.isArray(resultData)) {
+                    videoUrl = resultData[0] || '';
+                } else {
+                    try {
+                        // Try parsing as JSON array
+                        const urls = JSON.parse(resultData);
+                        if (Array.isArray(urls)) {
+                            videoUrl = urls[0] || '';
+                        } else if (typeof urls === 'string') {
+                            videoUrl = urls;
+                        } else if (urls.url) {
+                            videoUrl = urls.url;
+                        } else if (urls.videoUrl) {
+                            videoUrl = urls.videoUrl;
+                        }
+                    } catch {
+                        // Not JSON, use as-is
+                        videoUrl = resultData;
                     }
-                } catch {
-                    // Not JSON, use as-is
-                    videoUrl = resultData;
                 }
             }
 
@@ -345,15 +396,20 @@ export const pollVideoStatus = async (
             const video = await getVideoByTaskId(taskId);
             if (video?.id) {
                 await updateVideoGeneration(video.id, {
-                    status: 'completed',
+                    status: videoUrl ? 'completed' : 'failed',
                     videoUrl,
                     completedAt: new Date().toISOString(),
+                    errorMessage: videoUrl ? undefined : 'Video generated but URL not retrieved',
                 });
+            }
+
+            if (!videoUrl) {
+                return { status: 'failed', error: 'Video generated but URL not retrieved' };
             }
 
             return { status: 'completed', videoUrl };
         } else if (data.successFlag === 2 || data.successFlag === 3) {
-            const errorMsg = response.msg || 'Video generation failed';
+            const errorMsg = (data as any).msg || response.msg || 'Video generation failed';
 
             // Update Firebase with failed status
             const video = await getVideoByTaskId(taskId);
@@ -739,35 +795,32 @@ export const getChatSession = (model: string = 'gpt-4o-mini') => {
 };
 
 // ============================================
-// SORA 2 VIDEO GENERATION
+// SORA 2 VIDEO GENERATION (Market API)
 // ============================================
 
 /**
- * Generate video using Sora 2 (text-to-video or image-to-video)
+ * Generate video using Sora 2 (uses unified Market API)
+ * Models: sora2/sora-2-text-to-video, sora2/sora-2-pro-text-to-video
  */
 export const generateSoraVideo = async (
     prompt: string,
-    model: 'sora-2-text-to-video' | 'sora-2-image-to-video' | 'sora-2-pro-720p' | 'sora-2-pro-1080p' = 'sora-2-text-to-video',
-    aspectRatio: '16:9' | '9:16' | '1:1' = '16:9',
-    duration: number = 10,
-    imageUrl?: string
+    model: string = 'sora2/sora-2-text-to-video',
+    aspectRatio: '16:9' | '9:16' | '1:1' = '16:9'
 ): Promise<string> => {
-    // Sora API expects 'landscape' or 'portrait' instead of '16:9' or '9:16'
+    // Sora API expects 'landscape' or 'portrait'
     const soraAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
 
-    const body: any = {
+    const body = {
         model,
         input: {
             prompt,
             aspect_ratio: soraAspectRatio,
-            duration,
+            n_frames: '10', // 10 seconds
+            remove_watermark: true,
         },
     };
 
-    // For image-to-video, add the source image
-    if (model === 'sora-2-image-to-video' && imageUrl) {
-        body.input.image_url = imageUrl;
-    }
+    console.log('Creating Sora task with:', JSON.stringify(body, null, 2));
 
     const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
         method: 'POST',
@@ -778,11 +831,112 @@ export const generateSoraVideo = async (
         throw new Error(`Failed to create Sora video task: ${createResponse.msg}`);
     }
 
-    const taskResult = await pollTaskStatus(createResponse.data.taskId, 40, 30000); // 40 attempts × 30s = 20 min max (per Kie.ai docs)
+    // Poll using Market API endpoint
+    const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
     const urls = extractResultUrls(taskResult.resultJson);
 
     if (urls.length === 0) {
         throw new Error('No video URL returned from Sora');
+    }
+
+    return urls[0];
+};
+
+// ============================================
+// KLING VIDEO GENERATION (Market API)
+// ============================================
+
+/**
+ * Generate video using Kling (uses unified Market API)
+ * Text-to-Video Models: kling/v2-1-pro, kling/v2-1-standard
+ * Image-to-Video Models: kling/v2-1-master-image-to-video
+ */
+export const generateKlingVideo = async (
+    prompt: string,
+    model: string = 'kling/v2-1-pro',
+    aspectRatio: '16:9' | '9:16' | '1:1' = '16:9',
+    duration: '5' | '10' = '5',
+    imageUrl?: string
+): Promise<string> => {
+    const input: any = {
+        prompt,
+        duration,
+        negative_prompt: 'blur, distort, low quality, watermark',
+        cfg_scale: 0.5,
+    };
+
+    // Add image URL for image-to-video models
+    if (imageUrl) {
+        input.image_url = imageUrl;
+    }
+
+    const body = {
+        model,
+        input,
+    };
+
+    console.log('Creating Kling task with:', JSON.stringify(body, null, 2));
+
+    const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+
+    if (createResponse.code !== 200) {
+        throw new Error(`Failed to create Kling video task: ${createResponse.msg}`);
+    }
+
+    // Poll using Market API endpoint
+    const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
+    const urls = extractResultUrls(taskResult.resultJson);
+
+    if (urls.length === 0) {
+        throw new Error('No video URL returned from Kling');
+    }
+
+    return urls[0];
+};
+
+// ============================================
+// HAILUO VIDEO GENERATION (Market API)
+// ============================================
+
+/**
+ * Generate video using Hailuo (uses unified Market API)
+ * Models: hailuo/02-text-to-video-pro, hailuo/02-text-to-video-standard
+ */
+export const generateHailuoVideo = async (
+    prompt: string,
+    model: string = 'hailuo/02-text-to-video-pro',
+    aspectRatio: '16:9' | '9:16' | '1:1' = '16:9'
+): Promise<string> => {
+    const hailuoAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
+
+    const body = {
+        model,
+        input: {
+            prompt,
+            aspect_ratio: hailuoAspectRatio,
+        },
+    };
+
+    console.log('Creating Hailuo task with:', JSON.stringify(body, null, 2));
+
+    const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+
+    if (createResponse.code !== 200) {
+        throw new Error(`Failed to create Hailuo video task: ${createResponse.msg}`);
+    }
+
+    // Poll using Market API endpoint
+    const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
+    const urls = extractResultUrls(taskResult.resultJson);
+
+    if (urls.length === 0) {
+        throw new Error('No video URL returned from Hailuo');
     }
 
     return urls[0];
@@ -827,22 +981,34 @@ const pollRunwayTaskStatus = async (taskId: string, maxAttempts = 20, intervalMs
 
 /**
  * Generate video using Runway Gen-3
+ * Per Kie.ai docs:
+ * - duration: "5" or "10" (10s not available with 1080p)
+ * - quality: "720p" or "1080p" (1080p not available with 10s)
+ * - aspectRatio: "16:9", "4:3", "1:1", "3:4", "9:16"
  */
 export const generateRunwayVideo = async (
     prompt: string,
-    aspectRatio: '16:9' | '9:16' = '16:9',
+    aspectRatio: '16:9' | '9:16' | '1:1' | '4:3' | '3:4' = '16:9',
     duration: 5 | 10 = 5,
-    imageUrl?: string
+    imageUrl?: string,
+    quality: '720p' | '1080p' = '720p'
 ): Promise<string> => {
+    // 10s duration not available with 1080p
+    const finalQuality = duration === 10 ? '720p' : quality;
+
     const body: any = {
         prompt,
         aspectRatio,
-        duration,
+        duration: String(duration), // API expects string
+        quality: finalQuality,
+        waterMark: '', // No watermark
     };
 
     if (imageUrl) {
         body.imageUrl = imageUrl;
     }
+
+    console.log('Creating Runway task with:', JSON.stringify(body, null, 2));
 
     const createResponse = await kieRequest<CreateTaskResponse>('/runway/generate', {
         method: 'POST',
@@ -899,20 +1065,28 @@ const poll4oImageTaskStatus = async (taskId: string, maxAttempts = 60, intervalM
 };
 
 /**
- * Generate image using GPT-4o Image
+ * Generate image using GPT-4o Image (GPT IMAGE 1)
+ * Per Kie.ai docs:
+ * - size: "1:1", "3:2", "2:3" (aspect ratios, not pixel dimensions)
+ * - nVariants: 1, 2, or 4 (number of images to generate)
  */
 export const generate4oImage = async (
     prompt: string,
-    size: '1024x1024' | '1792x1024' | '1024x1792' = '1024x1024',
-    quality: 'standard' | 'hd' = 'standard'
+    size: '1:1' | '3:2' | '2:3' = '1:1',
+    nVariants: 1 | 2 | 4 = 1
 ): Promise<string> => {
+    const body = {
+        prompt,
+        size,
+        nVariants,
+        isEnhance: false,
+    };
+
+    console.log('Creating 4o Image task with:', JSON.stringify(body, null, 2));
+
     const createResponse = await kieRequest<CreateTaskResponse>('/gpt4o-image/generate', {
         method: 'POST',
-        body: JSON.stringify({
-            prompt,
-            size,
-            quality,
-        }),
+        body: JSON.stringify(body),
     });
 
     if (createResponse.code !== 200) {
@@ -1100,28 +1274,38 @@ export const generateVideoUnified = async (
     aspectRatio: '16:9' | '9:16' | '1:1' = '16:9',
     options?: {
         imageUrl?: string;
-        duration?: number;
+        duration?: '5' | '10';
     }
 ): Promise<string> => {
+    console.log('generateVideoUnified called with model:', model);
+
     switch (model) {
+        // Sora models (Market API)
+        case ModelType.SORA_TEXT:
+            return generateSoraVideo(prompt, 'sora2/sora-2-text-to-video', aspectRatio);
+        case ModelType.SORA_PRO:
+            return generateSoraVideo(prompt, 'sora2/sora-2-pro-text-to-video', aspectRatio);
+
+        // Kling models (Market API)
+        case ModelType.KLING_PRO:
+            return generateKlingVideo(prompt, 'kling/v2-1-pro', aspectRatio, options?.duration || '5');
+        case ModelType.KLING_STANDARD:
+            return generateKlingVideo(prompt, 'kling/v2-1-standard', aspectRatio, options?.duration || '5');
+
+        // Hailuo models (Market API)
+        case ModelType.HAILUO_PRO:
+            return generateHailuoVideo(prompt, 'hailuo/02-text-to-video-pro', aspectRatio);
+
+        // Veo models (specialized API)
         case ModelType.VEO_FAST:
             return generateVideo(prompt, 'veo3_fast', aspectRatio as '16:9' | '9:16');
         case ModelType.VEO_HD:
             return generateVideo(prompt, 'veo3', aspectRatio as '16:9' | '9:16');
-        case ModelType.SORA_TEXT:
-            return generateSoraVideo(prompt, 'sora-2-text-to-video', aspectRatio, options?.duration || 10);
-        case ModelType.SORA_IMAGE:
-            return generateSoraVideo(prompt, 'sora-2-image-to-video', aspectRatio, options?.duration || 10, options?.imageUrl);
-        case ModelType.SORA_PRO_720:
-            return generateSoraVideo(prompt, 'sora-2-pro-720p', aspectRatio, options?.duration || 10, options?.imageUrl);
-        case ModelType.SORA_PRO_1080:
-            return generateSoraVideo(prompt, 'sora-2-pro-1080p', aspectRatio, options?.duration || 10, options?.imageUrl);
+
+        // Runway (specialized API)
         case ModelType.RUNWAY_GEN3:
-            return generateRunwayVideo(prompt, aspectRatio as '16:9' | '9:16', (options?.duration || 5) as 5 | 10, options?.imageUrl);
-        case ModelType.KLING_2_6:
-        case ModelType.HAILUO_2_3:
-            // Kling and Hailuo use jobs API pattern similar to Sora
-            return generateSoraVideo(prompt, model as any, aspectRatio, options?.duration || 5);
+            return generateRunwayVideo(prompt, aspectRatio as '16:9' | '9:16', 5, options?.imageUrl);
+
         default:
             throw new Error(`Unsupported video model: ${model}`);
     }
@@ -1137,7 +1321,6 @@ export const generateImageUnified = async (
     options?: {
         inputImage?: string;
         resolution?: '1K' | '2K' | '4K';
-        quality?: 'standard' | 'hd';
     }
 ): Promise<string> => {
     switch (model) {
@@ -1148,15 +1331,20 @@ export const generateImageUnified = async (
             }
             return generateImage(prompt, aspectRatio, options?.resolution || '1K');
         case ModelType.GPT4O_IMAGE:
-            const size = aspectRatio === '16:9' ? '1792x1024' : aspectRatio === '9:16' ? '1024x1792' : '1024x1024';
-            return generate4oImage(prompt, size, options?.quality || 'standard');
+            // 4o Image API uses: '1:1', '3:2', '2:3'
+            // Map 16:9 to 3:2 (landscape), 9:16 to 2:3 (portrait)
+            const size4o: '1:1' | '3:2' | '2:3' = aspectRatio === '16:9' || aspectRatio === '4:3' ? '3:2' :
+                                                  aspectRatio === '9:16' || aspectRatio === '3:4' ? '2:3' : '1:1';
+            return generate4oImage(prompt, size4o);
         case ModelType.FLUX_KONTEXT:
             return generateFluxKontextImage(prompt, aspectRatio, options?.inputImage);
         case ModelType.MIDJOURNEY:
             return generateMidjourneyImage(prompt, aspectRatio);
         case ModelType.DALLE3:
             // DALL-E 3 uses same endpoint as 4o Image
-            return generate4oImage(prompt, aspectRatio === '16:9' ? '1792x1024' : '1024x1024', 'hd');
+            const sizeDalle: '1:1' | '3:2' | '2:3' = aspectRatio === '16:9' || aspectRatio === '4:3' ? '3:2' :
+                                                     aspectRatio === '9:16' || aspectRatio === '3:4' ? '2:3' : '1:1';
+            return generate4oImage(prompt, sizeDalle);
         default:
             throw new Error(`Unsupported image model: ${model}`);
     }

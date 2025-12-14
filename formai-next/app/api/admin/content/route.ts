@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
         const userId = searchParams.get('userId') || undefined;
         const flaggedParam = searchParams.get('flagged');
         const flagged = flaggedParam === 'true' ? true : flaggedParam === 'false' ? false : undefined;
+        const status = searchParams.get('status') as 'completed' | 'processing' | 'failed' | 'pending' | undefined;
 
         const { items, total } = await getAllContent({
             page,
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
             type,
             userId,
             flagged,
+            status,
         });
 
         return NextResponse.json({

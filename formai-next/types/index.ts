@@ -26,20 +26,23 @@ export interface User {
 
 // Kie.ai Model Types
 export enum ModelType {
-    // Video models - Veo 3.1
+    // Video models - Sora 2 (cheapest, default)
+    SORA_TEXT = 'sora-2-text-to-video',
+    SORA_PRO = 'sora-2-pro-text-to-video',
+
+    // Video models - Kling
+    KLING_PRO = 'kling/v2-1-pro',
+    KLING_STANDARD = 'kling/v2-1-standard',
+
+    // Video models - Hailuo
+    HAILUO_PRO = 'hailuo/2-3-text-to-video-pro',
+
+    // Video models - Veo 3.1 (expensive)
     VEO_FAST = 'veo3_fast',
     VEO_HD = 'veo3',
 
-    // Video models - Sora 2
-    SORA_TEXT = 'sora-2-text-to-video',
-    SORA_IMAGE = 'sora-2-image-to-video',
-    SORA_PRO_720 = 'sora-2-pro-720p',
-    SORA_PRO_1080 = 'sora-2-pro-1080p',
-
-    // Video models - Other
+    // Video models - Runway (expensive)
     RUNWAY_GEN3 = 'runway-gen3',
-    KLING_2_6 = 'kling-2.6',
-    HAILUO_2_3 = 'hailuo-2.3',
 
     // Image models - Nano Banana
     NANO_BANANA = 'nano-banana',
@@ -62,18 +65,19 @@ export enum ModelType {
 
 // Credit costs per model (for profitable pricing)
 export const CREDIT_COSTS: Record<ModelType, number> = {
-    // Video - Veo
-    [ModelType.VEO_FAST]: 10,
+    // Video - Sora (cheapest)
+    [ModelType.SORA_TEXT]: 5,
+    [ModelType.SORA_PRO]: 8,
+    // Video - Kling
+    [ModelType.KLING_PRO]: 12,
+    [ModelType.KLING_STANDARD]: 8,
+    // Video - Hailuo
+    [ModelType.HAILUO_PRO]: 10,
+    // Video - Veo (expensive)
+    [ModelType.VEO_FAST]: 15,
     [ModelType.VEO_HD]: 50,
-    // Video - Sora
-    [ModelType.SORA_TEXT]: 8,
-    [ModelType.SORA_IMAGE]: 8,
-    [ModelType.SORA_PRO_720]: 15,
-    [ModelType.SORA_PRO_1080]: 30,
-    // Video - Other
-    [ModelType.RUNWAY_GEN3]: 20,
-    [ModelType.KLING_2_6]: 12,
-    [ModelType.HAILUO_2_3]: 10,
+    // Video - Runway (expensive)
+    [ModelType.RUNWAY_GEN3]: 25,
     // Image - Nano Banana
     [ModelType.NANO_BANANA]: 3,
     [ModelType.NANO_BANANA_PRO]: 5,

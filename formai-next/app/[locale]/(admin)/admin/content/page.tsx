@@ -16,6 +16,9 @@ import {
     Loader2,
     FileVideo,
     ExternalLink,
+    Clock,
+    AlertCircle,
+    CheckCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -25,10 +28,11 @@ interface ContentItem {
     userId: string;
     prompt: string;
     url: string;
-    status: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted';
     createdAt: string;
     flagged?: boolean;
     flagReason?: string;
+    errorMessage?: string;
 }
 
 export default function AdminContentPage() {
@@ -39,6 +43,7 @@ export default function AdminContentPage() {
     const [page, setPage] = useState(1);
     const [typeFilter, setTypeFilter] = useState<'all' | 'video' | 'image' | 'avatar'>('all');
     const [flaggedFilter, setFlaggedFilter] = useState<'all' | 'flagged' | 'unflagged'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'processing' | 'failed'>('all');
     const [loading, setLoading] = useState(true);
 
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; item: ContentItem | null }>({ open: false, item: null });
@@ -60,6 +65,7 @@ export default function AdminContentPage() {
 
             if (typeFilter !== 'all') params.set('type', typeFilter);
             if (flaggedFilter !== 'all') params.set('flagged', flaggedFilter === 'flagged' ? 'true' : 'false');
+            if (statusFilter !== 'all') params.set('status', statusFilter);
 
             const response = await fetch(`/api/admin/content?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -76,7 +82,7 @@ export default function AdminContentPage() {
         } finally {
             setLoading(false);
         }
-    }, [user, page, typeFilter, flaggedFilter, t]);
+    }, [user, page, typeFilter, flaggedFilter, statusFilter, t]);
 
     useEffect(() => {
         fetchContent();
@@ -182,6 +188,19 @@ export default function AdminContentPage() {
                     <option value="avatar">{t('avatars')}</option>
                 </select>
                 <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                        setStatusFilter(e.target.value as typeof statusFilter);
+                        setPage(1);
+                    }}
+                    className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-primary/50"
+                >
+                    <option value="all">{t('allStatus') || 'All Status'}</option>
+                    <option value="completed">{t('completed') || 'Completed'}</option>
+                    <option value="processing">{t('processing') || 'Processing'}</option>
+                    <option value="failed">{t('failed') || 'Failed'}</option>
+                </select>
+                <select
                     value={flaggedFilter}
                     onChange={(e) => {
                         setFlaggedFilter(e.target.value as typeof flaggedFilter);
@@ -208,26 +227,60 @@ export default function AdminContentPage() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {items.map((item) => (
-                        <GlassCard key={item.id} className={`overflow-hidden ${item.flagged ? 'border-red-500/50' : ''}`}>
+                        <GlassCard key={item.id} className={`overflow-hidden ${item.flagged ? 'border-red-500/50' : ''} ${item.status === 'failed' ? 'border-orange-500/50' : ''}`}>
                             {/* Preview */}
                             <div className="relative aspect-video bg-black/50">
-                                {item.type === 'video' ? (
-                                    <video
-                                        src={item.url}
-                                        className="w-full h-full object-cover"
-                                        muted
-                                    />
+                                {item.url && item.status === 'completed' ? (
+                                    item.type === 'video' ? (
+                                        <video
+                                            src={item.url}
+                                            className="w-full h-full object-cover"
+                                            muted
+                                            controls
+                                        />
+                                    ) : (
+                                        <img
+                                            src={item.url}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = '/placeholder.png';
+                                            }}
+                                        />
+                                    )
                                 ) : (
-                                    <img
-                                        src={item.url}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).src = '/placeholder.png';
-                                        }}
-                                    />
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+                                        {item.status === 'processing' || item.status === 'pending' ? (
+                                            <>
+                                                <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                                                <span className="text-xs">{t('processing') || 'Processing...'}</span>
+                                            </>
+                                        ) : item.status === 'failed' ? (
+                                            <>
+                                                <AlertCircle className="w-8 h-8 text-red-400 mb-2" />
+                                                <span className="text-xs text-red-400">{t('failed') || 'Failed'}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FileVideo className="w-8 h-8 mb-2" />
+                                                <span className="text-xs">{t('noPreview') || 'No preview'}</span>
+                                            </>
+                                        )}
+                                    </div>
                                 )}
-                                {item.flagged && (
+                                {/* Status badge */}
+                                {item.status !== 'completed' && (
+                                    <div className={`absolute top-2 left-2 rtl:left-auto rtl:right-2 px-2 py-1 text-white text-xs font-medium rounded flex items-center gap-1 ${
+                                        item.status === 'processing' || item.status === 'pending' ? 'bg-blue-500/80' :
+                                        item.status === 'failed' ? 'bg-red-500/80' :
+                                        'bg-gray-500/80'
+                                    }`}>
+                                        {item.status === 'processing' || item.status === 'pending' ? <Clock className="w-3 h-3" /> :
+                                         item.status === 'failed' ? <AlertCircle className="w-3 h-3" /> : null}
+                                        {item.status}
+                                    </div>
+                                )}
+                                {item.flagged && item.status === 'completed' && (
                                     <div className="absolute top-2 left-2 rtl:left-auto rtl:right-2 px-2 py-1 bg-red-500/80 text-white text-xs font-medium rounded">
                                         {t('flagged')}
                                     </div>
@@ -240,21 +293,33 @@ export default function AdminContentPage() {
                             {/* Info */}
                             <div className="p-4">
                                 <p className="text-white text-sm line-clamp-2 mb-2">{item.prompt || 'No prompt'}</p>
-                                <p className="text-gray-500 text-xs mb-3">
-                                    {new Date(item.createdAt).toLocaleDateString()}
-                                </p>
+                                <div className="flex items-center justify-between text-gray-500 text-xs mb-3">
+                                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                                    {item.status === 'completed' && (
+                                        <span className="flex items-center gap-1 text-green-400">
+                                            <CheckCircle className="w-3 h-3" /> {t('completed') || 'Completed'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Error message for failed items */}
+                                {item.status === 'failed' && item.errorMessage && (
+                                    <p className="text-red-400 text-xs mb-3 line-clamp-2">{item.errorMessage}</p>
+                                )}
 
                                 {/* Actions */}
                                 <div className="flex items-center gap-2">
-                                    <a
-                                        href={item.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                        title={t('openInNewTab')}
-                                    >
-                                        <ExternalLink className="w-4 h-4" />
-                                    </a>
+                                    {item.url && item.status === 'completed' && (
+                                        <a
+                                            href={item.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                            title={t('openInNewTab')}
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                    )}
                                     <button
                                         onClick={() => setFlagModal({
                                             open: true,

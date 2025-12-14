@@ -57,22 +57,29 @@ interface VideoGenProps {
     userId?: string;
 }
 
-// Video model options with hints
-const VIDEO_MODELS = [
-    { value: ModelType.VEO_FAST, labelKey: 'modelVeoFast', hintKey: 'hintVeoFast' },
-    { value: ModelType.VEO_HD, labelKey: 'modelVeoHD', hintKey: 'hintVeoHD' },
+// Video model options with hints - ordered by price (cheapest first)
+const VIDEO_MODELS_STANDARD = [
     { value: ModelType.SORA_TEXT, labelKey: 'modelSora2', hintKey: 'hintSora2' },
-    { value: ModelType.SORA_PRO_720, labelKey: 'modelSoraPro720', hintKey: 'hintSoraPro720' },
-    { value: ModelType.SORA_PRO_1080, labelKey: 'modelSoraPro1080', hintKey: 'hintSoraPro1080' },
-    { value: ModelType.RUNWAY_GEN3, labelKey: 'modelRunway', hintKey: 'hintRunway' },
-    { value: ModelType.KLING_2_6, labelKey: 'modelKling', hintKey: 'hintKling' },
-    { value: ModelType.HAILUO_2_3, labelKey: 'modelHailuo', hintKey: 'hintHailuo' },
+    { value: ModelType.SORA_PRO, labelKey: 'modelSoraPro', hintKey: 'hintSoraPro' },
+    { value: ModelType.KLING_STANDARD, labelKey: 'modelKlingStandard', hintKey: 'hintKlingStandard' },
+    { value: ModelType.HAILUO_PRO, labelKey: 'modelHailuo', hintKey: 'hintHailuo' },
+    { value: ModelType.KLING_PRO, labelKey: 'modelKlingPro', hintKey: 'hintKlingPro' },
 ];
+
+// Premium/Expensive models (shown below separator)
+const VIDEO_MODELS_PREMIUM = [
+    { value: ModelType.VEO_FAST, labelKey: 'modelVeoFast', hintKey: 'hintVeoFast' },
+    { value: ModelType.RUNWAY_GEN3, labelKey: 'modelRunway', hintKey: 'hintRunway' },
+    { value: ModelType.VEO_HD, labelKey: 'modelVeoHD', hintKey: 'hintVeoHD' },
+];
+
+// Combined list for backwards compatibility
+const VIDEO_MODELS = [...VIDEO_MODELS_STANDARD, ...VIDEO_MODELS_PREMIUM];
 
 const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, userId }) => {
     const t = useTranslations('video');
     const [prompt, setPrompt] = useState('');
-    const [model, setModel] = useState<ModelType>(ModelType.VEO_FAST);
+    const [model, setModel] = useState<ModelType>(ModelType.SORA_TEXT); // Default to cheapest model
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
 
     // Get current credit cost
@@ -375,19 +382,31 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Select
-                                    label={t('modelLabel')}
+                                <label className="text-sm font-medium text-gray-300">{t('modelLabel')}</label>
+                                <select
                                     value={model}
                                     onChange={(e) => {
                                         const newModel = e.target.value as ModelType;
                                         console.log('Model changed to:', newModel);
                                         setModel(newModel);
                                     }}
-                                    options={VIDEO_MODELS.map(m => ({
-                                        label: `${t(m.labelKey)} (${CREDIT_COSTS[m.value]} ${t('credits') || 'credits'})`,
-                                        value: m.value,
-                                    }))}
-                                />
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                                >
+                                    <optgroup label={t('standardModels') || 'Standard Models'}>
+                                        {VIDEO_MODELS_STANDARD.map(m => (
+                                            <option key={m.value} value={m.value}>
+                                                {t(m.labelKey)} ({CREDIT_COSTS[m.value]} {t('credits') || 'credits'})
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                    <optgroup label={t('premiumModels') || '⭐ Premium Models'}>
+                                        {VIDEO_MODELS_PREMIUM.map(m => (
+                                            <option key={m.value} value={m.value}>
+                                                {t(m.labelKey)} ({CREDIT_COSTS[m.value]} {t('credits') || 'credits'})
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                </select>
                                 {currentModelConfig && (
                                     <p className="text-xs text-primary/80 px-1">
                                         {t(currentModelConfig.hintKey)}
