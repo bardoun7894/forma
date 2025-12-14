@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from '@/components/ui/Button';
 import { TextArea } from '@/components/ui/TextArea';
 import { Select } from '@/components/ui/Select';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { FreeTrialBanner, TrialExhaustedModal } from '@/components/ui/FreeTrialBanner';
+import { useFreeTrial, FREE_TRIAL_CONFIG } from '@/hooks/useFreeTrial';
 import { ModelType, CREDIT_COSTS } from '@/types';
 import { generateImageUnified, getModelCreditCost, enhancePrompt } from '@/services/aiService';
 import { Sparkles, Image as ImageIcon, Download, AlertCircle, Maximize2, Upload, X, Wand2, Layers } from 'lucide-react';
@@ -15,11 +18,16 @@ import { deductCredits as deductCreditsFirebase, saveImageGeneration } from '@/l
 
 export default function ImagePage() {
     const { userData, refreshUserData } = useAuth();
+    const params = useParams();
+    const locale = (params?.locale as string) || 'en';
+    const freeTrial = useFreeTrial();
+    const isLoggedIn = !!userData?.uid;
 
     const handleGenerateComplete = async (url: string, prompt: string, model: string, creditsUsed: number) => {
-        // Save to library
+        // Save to library (only for logged-in users)
         if (userData?.uid) {
             try {
+                const now = new Date().toISOString();
                 await saveImageGeneration({
                     userId: userData.uid,
                     prompt,
@@ -27,7 +35,8 @@ export default function ImagePage() {
                     imageUrl: url,
                     status: 'completed',
                     creditsUsed,
-                    createdAt: new Date().toISOString(),
+                    createdAt: now,
+                    completedAt: now, // Required for notifications to trigger
                 });
             } catch (error) {
                 console.error('Failed to save image to library:', error);
@@ -53,7 +62,13 @@ export default function ImagePage() {
             <Sidebar />
 
             <main className="lg:ml-72 rtl:lg:ml-0 rtl:lg:mr-72 min-h-screen pt-20 lg:pt-6 px-4 pb-4 lg:px-8 lg:pb-8">
-                <ImageGen onGenerateComplete={handleGenerateComplete} deductCredits={deductCredits} />
+                <ImageGen
+                    onGenerateComplete={handleGenerateComplete}
+                    deductCredits={deductCredits}
+                    locale={locale}
+                    isLoggedIn={isLoggedIn}
+                    freeTrial={freeTrial}
+                />
             </main>
         </div>
     );
@@ -62,6 +77,9 @@ export default function ImagePage() {
 interface ImageGenProps {
     onGenerateComplete: (url: string, prompt: string, model: string, creditsUsed: number) => void;
     deductCredits: (amount: number) => Promise<boolean>;
+    locale: string;
+    isLoggedIn: boolean;
+    freeTrial: ReturnType<typeof useFreeTrial>;
 }
 
 const STYLE_PRESETS = [
@@ -85,9 +103,11 @@ const IMAGE_MODELS = [
     { value: ModelType.DALLE3, labelKey: 'modelDalle3', hintKey: 'hintDalle3' },
 ];
 
-const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }) => {
+const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, locale, isLoggedIn, freeTrial }) => {
     const t = useTranslations('image');
+    const tTrial = useTranslations('freeTrial');
     const [mode, setMode] = useState<'text' | 'img2img'>('text');
+    const [showExhaustedModal, setShowExhaustedModal] = useState(false);
 
     // Shared State
     const [prompt, setPrompt] = useState('');
@@ -101,10 +121,15 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }
     // Get current model hint
     const currentModelConfig = IMAGE_MODELS.find(m => m.value === model);
 
+    // Free trial state
+    const { canGenerateImage, imagesRemaining, useImageTrial, isLoading: isTrialLoading } = freeTrial;
+    const canUseTrial = !isLoggedIn && canGenerateImage;
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [resultUrl, setResultUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isEnhancing, setIsEnhancing] = useState(false);
+    const [isTrialGeneration, setIsTrialGeneration] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,26 +162,51 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }
             return;
         }
 
+        // Check if this is a free trial generation or logged-in user generation
+        const usingTrial = !isLoggedIn && canUseTrial;
+
         if (mode === 'text') {
-            if (!(await deductCredits(creditCost))) {
-                setError(t('errorInsufficientCredits'));
+            if (usingTrial) {
+                // Use free trial
+                const trialUsed = useImageTrial();
+                if (!trialUsed) {
+                    setShowExhaustedModal(true);
+                    return;
+                }
+                setIsTrialGeneration(true);
+            } else if (isLoggedIn) {
+                // Deduct credits for logged-in user
+                if (!(await deductCredits(creditCost))) {
+                    setError(t('errorInsufficientCredits'));
+                    return;
+                }
+                setIsTrialGeneration(false);
+            } else {
+                // Not logged in and no trial available
+                setShowExhaustedModal(true);
                 return;
             }
+
             setIsGenerating(true);
             try {
                 // Use unified generator for all models
                 const url = await generateImageUnified(prompt, model);
                 setResultUrl(url);
-                onGenerateComplete(url, prompt, model, creditCost);
+                onGenerateComplete(url, prompt, model, usingTrial ? 0 : creditCost);
             } catch (err: any) {
                 setError(err.message || t('errorFailedGenerate'));
             } finally {
                 setIsGenerating(false);
             }
         } else {
-            // Image to Image Mode
+            // Image to Image Mode - only for logged-in users (no free trial for img2img)
             if (!uploadedImage) {
                 setError(t('errorUploadRequired'));
+                return;
+            }
+
+            if (!isLoggedIn) {
+                setShowExhaustedModal(true);
                 return;
             }
 
@@ -228,9 +278,27 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }
 
     return (
         <div className="max-w-6xl mx-auto h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6 animate-in fade-in duration-500">
+            {/* Trial Exhausted Modal */}
+            <TrialExhaustedModal
+                locale={locale}
+                type="image"
+                isOpen={showExhaustedModal}
+                onClose={() => setShowExhaustedModal(false)}
+            />
 
             {/* Input Panel */}
             <div className="lg:w-1/3 flex flex-col gap-4">
+                {/* Free Trial Banner - show for non-logged-in users */}
+                {!isLoggedIn && !isTrialLoading && (
+                    <FreeTrialBanner
+                        locale={locale}
+                        type="image"
+                        remaining={imagesRemaining}
+                        total={FREE_TRIAL_CONFIG.maxImages}
+                        isLoggedIn={isLoggedIn}
+                    />
+                )}
+
                 <div>
                     <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
                         <ImageIcon className="w-6 h-6 text-primary" /> {t('title')}
@@ -353,14 +421,18 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits }
 
                     <Button
                         onClick={handleGenerate}
-                        disabled={isGenerating || (mode === 'img2img' && !uploadedImage)}
+                        disabled={isGenerating || (mode === 'img2img' && !uploadedImage) || (mode === 'img2img' && !isLoggedIn)}
                         isLoading={isGenerating}
                         size="lg"
                         className="mt-auto w-full shadow-lg shadow-primary/20"
                     >
-                        {mode === 'text' ? t('generateButtonText') : t('transformButtonText')}
+                        {mode === 'text' && canUseTrial && !isLoggedIn
+                            ? tTrial('trialGeneration')
+                            : (mode === 'text' ? t('generateButtonText') : t('transformButtonText'))}
                         <span className="ml-2 opacity-60 text-xs border border-black/20 px-1.5 rounded">
-                            {mode === 'text' ? creditCost : img2imgCreditCost} {t('credits') || 'credits'}
+                            {mode === 'text' && canUseTrial && !isLoggedIn
+                                ? tTrial('noCreditsNeeded')
+                                : `${mode === 'text' ? creditCost : img2imgCreditCost} ${t('credits') || 'credits'}`}
                         </span>
                     </Button>
                 </GlassCard>

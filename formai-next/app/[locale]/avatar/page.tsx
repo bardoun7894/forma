@@ -32,6 +32,7 @@ export default function AvatarPage() {
         // Save to library
         if (userData?.uid) {
             try {
+                const now = new Date().toISOString();
                 await saveAvatarGeneration({
                     userId: userData.uid,
                     prompt,
@@ -39,7 +40,8 @@ export default function AvatarPage() {
                     type, // 'image' for portraits, 'video' for talking avatars
                     status: 'completed',
                     creditsUsed,
-                    createdAt: new Date().toISOString(),
+                    createdAt: now,
+                    completedAt: now, // Required for notifications to trigger
                 });
             } catch (error) {
                 console.error('Failed to save avatar to library:', error);

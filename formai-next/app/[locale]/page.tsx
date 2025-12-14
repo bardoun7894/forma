@@ -15,11 +15,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
 import { SpotlightCard } from "@/components/ui/SpotlightCard";
 import { GlowingBorder } from "@/components/ui/GlowingBorder";
+import { Modal } from "@/components/ui/Modal";
 
 export default function LandingPage() {
   const locale = useLocale();
   const router = useRouter();
   const { user, loading } = useAuth();
+
+  // Modal states
+  const [activeVideo, setActiveVideo] = useState<boolean>(false);
+  const [activeGalleryImage, setActiveGalleryImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && user) {
@@ -56,7 +61,8 @@ export default function LandingPage() {
             <LanguageSwitcher />
             <Button variant="secondary" size="sm" className="hidden sm:inline-flex" onClick={() => setIsAuthOpen(true)}>{tNav('signIn')}</Button>
             <Button size="sm" className="hidden sm:inline-flex" onClick={() => setIsAuthOpen(true)}>{tNav('getStarted')}</Button>
-            <Button variant="secondary" size="sm" className="sm:hidden" onClick={() => setIsAuthOpen(true)}>Sign In</Button>
+            {/* Mobile Menu Button - Fixed i18n */}
+            <Button variant="secondary" size="sm" className="sm:hidden" onClick={() => setIsAuthOpen(true)}>{tNav('signIn')}</Button>
           </div>
         </div>
       </nav>
@@ -81,8 +87,6 @@ export default function LandingPage() {
             {t('heroSubheadline')}
           </p>
 
-
-
           <div className="mb-10 md:mb-12">
             <Button
               size="lg"
@@ -98,21 +102,26 @@ export default function LandingPage() {
 
           {/* Product UI Mockup */}
           <GlowingBorder containerClassName="max-w-4xl mx-auto rounded-2xl mb-20" className="bg-black/80 backdrop-blur-xl">
-            <div className="relative aspect-video rounded-xl overflow-hidden">
+            <div className="relative aspect-video rounded-xl overflow-hidden cursor-pointer group" onClick={() => setActiveVideo(true)}>
               <Image
                 src="/images/landing/hero-mockup.png"
                 alt={t('productMockupAlt')}
                 fill
-                className="object-cover rounded-xl"
+                className="object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
                 priority
               />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-lg group-hover:scale-110 transition-transform">
+                  <Play className="w-8 h-8 text-white fill-white" />
+                </div>
+              </div>
             </div>
           </GlowingBorder>
         </div>
       </section>
 
       {/* How It Works */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/30 to-transparent relative z-10">
+      <section id="how-it-works" className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/30 to-transparent relative z-10">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-12 md:mb-16">
             {t('howItWorksTitle')}
@@ -153,7 +162,7 @@ export default function LandingPage() {
       </section>
 
       {/* Key Benefits */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-black/40 backdrop-blur-sm relative z-10">
+      <section id="features" className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-black/40 backdrop-blur-sm relative z-10">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-12 md:mb-16">
             {t('keyBenefitsTitle')}
@@ -204,7 +213,7 @@ export default function LandingPage() {
       </section>
 
       {/* Demo Video */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/30 to-transparent relative z-10">
+      <section id="demo" className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/30 to-transparent relative z-10">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-8 md:mb-12">
             {t('demoVideoTitle')}
@@ -212,17 +221,17 @@ export default function LandingPage() {
           <p className="text-lg text-gray-300 text-center mb-10 md:mb-16 max-w-3xl mx-auto">
             {t('demoVideoDescription')}
           </p>
-          <div className="relative max-w-4xl mx-auto rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-primary/30 transition-all duration-300">
+          <div className="relative max-w-4xl mx-auto rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-primary/30 transition-all duration-300 cursor-pointer group" onClick={() => setActiveVideo(true)}>
             <div className="aspect-video relative">
               <Image
                 src="/images/landing/hero-mockup.png"
                 alt={t('productMockupAlt')}
                 fill
-                className="object-cover rounded-xl"
+                className="object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-primary to-purple-500 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform">
-                  <Play className="w-10 h-10 text-white" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-primary to-purple-500 flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                  <Play className="w-10 h-10 text-white fill-white" />
                 </div>
               </div>
             </div>
@@ -241,7 +250,7 @@ export default function LandingPage() {
       </section>
 
       {/* Visual Examples Gallery */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/30 to-transparent relative z-10">
+      <section id="gallery" className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/30 to-transparent relative z-10">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-center mb-8 md:mb-12">
             {t('galleryTitle')}
@@ -251,30 +260,41 @@ export default function LandingPage() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Example 1 - Cinematic Video */}
-            <div className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-primary/30 transition-all duration-300 group">
+            <div
+              className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-primary/30 transition-all duration-300 group cursor-pointer"
+              onClick={() => setActiveGalleryImage("/images/landing/gallery-video.png")}
+            >
               <div className="aspect-video relative">
                 <Image
                   src="/images/landing/gallery-video.png"
                   alt={t('galleryExample1Title')}
                   fill
-                  className="object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
-                  <div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4 opacity-100 group-hover:opacity-100 transition-opacity">
+                  <div className="w-full">
                     <p className="text-white font-medium">{t('galleryExample1Title')}</p>
                     <p className="text-gray-400 text-sm">{t('galleryExample1Subtitle')}</p>
+                  </div>
+                </div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20">
+                    <ImageIcon className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </div>
             </div>
             {/* Example 2 - Portrait */}
-            <div className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-purple-500/30 transition-all duration-300 group">
+            <div
+              className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-purple-500/30 transition-all duration-300 group cursor-pointer"
+              onClick={() => setActiveGalleryImage("/images/landing/gallery-portrait.png")}
+            >
               <div className="aspect-video relative">
                 <Image
                   src="/images/landing/gallery-portrait.png"
                   alt={t('galleryExample2Title')}
                   fill
-                  className="object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
                   <div>
@@ -282,21 +302,34 @@ export default function LandingPage() {
                     <p className="text-gray-400 text-sm">{t('galleryExample2Subtitle')}</p>
                   </div>
                 </div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20">
+                    <ImageIcon className="w-6 h-6 text-white" />
+                  </div>
+                </div>
               </div>
             </div>
             {/* Example 3 - Avatar */}
-            <div className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-green-500/30 transition-all duration-300 group">
+            <div
+              className="rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/40 to-gray-900/40 p-1 backdrop-blur-lg hover:border-green-500/30 transition-all duration-300 group cursor-pointer"
+              onClick={() => setActiveGalleryImage("/images/landing/gallery-avatar.png")}
+            >
               <div className="aspect-video relative">
                 <Image
                   src="/images/landing/gallery-avatar.png"
                   alt={t('galleryExample3Title')}
                   fill
-                  className="object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
                   <div>
                     <p className="text-white font-medium">{t('galleryExample3Title')}</p>
                     <p className="text-gray-400 text-sm">{t('galleryExample3Subtitle')}</p>
+                  </div>
+                </div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20">
+                    <ImageIcon className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </div>
@@ -316,7 +349,7 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/40 to-transparent relative z-10">
+      <section id="testimonials" className="py-16 md:py-24 px-4 sm:px-6 border-t border-white/5 bg-gradient-to-b from-black/40 to-transparent relative z-10">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-12">{t('testimonialTitle')}</h2>
           <div className="grid md:grid-cols-2 gap-8 md:gap-12">
@@ -412,12 +445,15 @@ export default function LandingPage() {
               </div>
               <span className="text-lg font-bold tracking-tight">{tCommon('appName')}</span>
             </div>
+            {/* Functional Footer Links with Anchors */}
             <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-400">
               <a href="#" className="hover:text-primary transition-colors">{t('footerHome')}</a>
-              <a href="#" className="hover:text-primary transition-colors">{t('footerFeatures')}</a>
+              <a href="#features" className="hover:text-primary transition-colors">{t('footerFeatures')}</a>
+              {/* Pricing doesn't exist yet, keeping # */}
               <a href="#" className="hover:text-primary transition-colors">{t('footerPricing')}</a>
+              {/* Blog doesn't exist yet, keeping # */}
               <a href="#" className="hover:text-primary transition-colors">{t('footerBlog')}</a>
-              <a href="#" className="hover:text-primary transition-colors">{t('footerContact')}</a>
+              <a href="#contact" className="hover:text-primary transition-colors">{t('footerContact')}</a>
               <a href="#" className="hover:text-primary transition-colors">{t('footerPrivacy')}</a>
               <a href="#" className="hover:text-primary transition-colors">{t('footerTerms')}</a>
             </div>
@@ -448,6 +484,44 @@ export default function LandingPage() {
         onClose={() => setIsAuthOpen(false)}
         onAuthSuccess={handleAuthSuccess}
       />
+
+      {/* Video Modal */}
+      <Modal
+        isOpen={activeVideo}
+        onClose={() => setActiveVideo(false)}
+        className="max-w-5xl bg-black"
+      >
+        <div className="aspect-video w-full bg-black relative flex items-center justify-center">
+          {/* Placeholder for actual video embed */}
+          <div className="text-center p-8">
+            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
+              <Play className="w-8 h-8 text-white" />
+            </div>
+            <p className="text-white text-lg font-medium">Demo Video Placeholder</p>
+            <p className="text-gray-400 mt-2">Replace with YouTube/Vimeo iframe</p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Gallery Lightbox Modal */}
+      <Modal
+        isOpen={!!activeGalleryImage}
+        onClose={() => setActiveGalleryImage(null)}
+        className="max-w-6xl bg-transparent border-none shadow-none"
+        showCloseButton={true}
+      >
+        {activeGalleryImage && (
+          <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-2xl">
+            <Image
+              src={activeGalleryImage}
+              alt="Gallery Preview"
+              fill
+              className="object-contain"
+            />
+          </div>
+        )}
+      </Modal>
+
     </div>
   );
 }

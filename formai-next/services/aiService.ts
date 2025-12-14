@@ -1108,10 +1108,13 @@ export const generate4oImage = async (
 
 /**
  * Poll Flux Kontext task status
+ * Per docs: response structure is data.response.resultImageUrl (permanent CDN) and data.response.originImageUrl (10 min valid)
  */
 const pollFluxKontextTaskStatus = async (taskId: string, maxAttempts = 60, intervalMs = 5000): Promise<string[]> => {
     for (let i = 0; i < maxAttempts; i++) {
-        const response = await kieRequest<FluxKontextStatusResponse>(`/flux/kontext/record-info?taskId=${taskId}`);
+        const response = await kieRequest<any>(`/flux/kontext/record-info?taskId=${taskId}`);
+
+        console.log(`Flux Kontext poll attempt ${i + 1}/${maxAttempts}, response:`, JSON.stringify(response, null, 2));
 
         if (response.code !== 200) {
             throw new Error(`Flux Kontext status check failed: ${response.msg || 'Unknown error'}`);
@@ -1119,19 +1122,30 @@ const pollFluxKontextTaskStatus = async (taskId: string, maxAttempts = 60, inter
 
         const data = response.data;
 
+        // successFlag: 0=GENERATING, 1=SUCCESS, 2=CREATE_TASK_FAILED, 3=GENERATE_FAILED
         if (data.successFlag === 1) {
-            if (data.resultUrls) {
-                try {
-                    return JSON.parse(data.resultUrls);
-                } catch {
-                    return [data.resultUrls];
-                }
+            // Per Flux Kontext docs: URL is at data.response.resultImageUrl
+            const resultUrl = data.response?.resultImageUrl;
+            if (resultUrl) {
+                console.log('Flux Kontext success, resultImageUrl:', resultUrl);
+                return [resultUrl];
             }
+            // Fallback to originImageUrl if resultImageUrl not available
+            const originUrl = data.response?.originImageUrl;
+            if (originUrl) {
+                console.log('Flux Kontext success, originImageUrl:', originUrl);
+                return [originUrl];
+            }
+            console.error('Flux Kontext success but no URL found. Full data:', JSON.stringify(data, null, 2));
             throw new Error('Image generated but no URLs returned');
         } else if (data.successFlag === 2 || data.successFlag === 3) {
-            throw new Error(`Flux Kontext generation failed: ${data.msg || 'Unknown error'}`);
+            const errorMsg = data.errorMessage || data.msg || response.msg || 'Unknown error';
+            console.error('Flux Kontext generation failed:', errorMsg);
+            throw new Error(`Flux Kontext generation failed: ${errorMsg}`);
         }
 
+        // successFlag === 0 means still generating
+        console.log(`Flux Kontext still generating... (attempt ${i + 1}/${maxAttempts})`);
         await new Promise(resolve => setTimeout(resolve, intervalMs));
     }
 
@@ -1140,31 +1154,42 @@ const pollFluxKontextTaskStatus = async (taskId: string, maxAttempts = 60, inter
 
 /**
  * Generate image using Flux Kontext Pro
+ * Per docs: uses camelCase parameters (aspectRatio, inputImage, outputFormat, etc.)
  */
 export const generateFluxKontextImage = async (
     prompt: string,
-    aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' = '1:1',
+    aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '21:9' = '1:1',
     inputImage?: string
 ): Promise<string> => {
     const body: any = {
         prompt,
-        aspect_ratio: aspectRatio,
+        aspectRatio, // camelCase per docs
+        model: 'flux-kontext-pro',
+        outputFormat: 'jpeg',
+        enableTranslation: true,
     };
 
     if (inputImage) {
-        body.input_image = inputImage;
+        body.inputImage = inputImage; // camelCase per docs
     }
+
+    console.log('Creating Flux Kontext task with:', JSON.stringify(body, null, 2));
 
     const createResponse = await kieRequest<CreateTaskResponse>('/flux/kontext/generate', {
         method: 'POST',
         body: JSON.stringify(body),
     });
 
+    console.log('Flux Kontext create response:', JSON.stringify(createResponse, null, 2));
+
     if (createResponse.code !== 200) {
         throw new Error(`Failed to create Flux Kontext task: ${createResponse.msg}`);
     }
 
-    const imageUrls = await pollFluxKontextTaskStatus(createResponse.data.taskId);
+    const taskId = createResponse.data.taskId;
+    console.log('Flux Kontext task created, ID:', taskId);
+
+    const imageUrls = await pollFluxKontextTaskStatus(taskId);
 
     if (imageUrls.length === 0) {
         throw new Error('No image URL returned from Flux Kontext');

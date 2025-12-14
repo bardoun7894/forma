@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from '@/components/ui/Button';
 import { TextArea } from '@/components/ui/TextArea';
 import { Select } from '@/components/ui/Select';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { VideoGenerationProgress } from '@/components/VideoGenerationProgress';
+import { FreeTrialBanner, TrialExhaustedModal } from '@/components/ui/FreeTrialBanner';
+import { useFreeTrial, FREE_TRIAL_CONFIG } from '@/hooks/useFreeTrial';
 import { ModelType, CREDIT_COSTS } from '@/types';
 import { pollVideoStatus, AIServiceError, generateVideoUnified, getModelCreditCost, enhancePrompt } from '@/services/aiService';
 import { Sparkles, Video, Settings2, Download, AlertCircle, RefreshCw, Wand2 } from 'lucide-react';
@@ -18,6 +21,10 @@ type GenerationStatus = 'idle' | 'starting' | 'processing' | 'completed' | 'fail
 
 export default function VideoPage() {
     const { userData, refreshUserData } = useAuth();
+    const params = useParams();
+    const locale = (params?.locale as string) || 'en';
+    const freeTrial = useFreeTrial();
+    const isLoggedIn = !!userData?.uid;
 
     const handleGenerateComplete = (url: string, prompt: string, type: 'video') => {
         console.log("Generated:", { url, prompt, type });
@@ -45,6 +52,9 @@ export default function VideoPage() {
                     onGenerateComplete={handleGenerateComplete}
                     deductCredits={deductCredits}
                     userId={userData?.uid}
+                    locale={locale}
+                    isLoggedIn={isLoggedIn}
+                    freeTrial={freeTrial}
                 />
             </main>
         </div>
@@ -55,6 +65,9 @@ interface VideoGenProps {
     onGenerateComplete: (url: string, prompt: string, type: 'video') => void;
     deductCredits: (amount: number) => Promise<boolean>;
     userId?: string;
+    locale: string;
+    isLoggedIn: boolean;
+    freeTrial: ReturnType<typeof useFreeTrial>;
 }
 
 // Video model options with hints - ordered by price (cheapest first)
@@ -76,17 +89,23 @@ const VIDEO_MODELS_PREMIUM = [
 // Combined list for backwards compatibility
 const VIDEO_MODELS = [...VIDEO_MODELS_STANDARD, ...VIDEO_MODELS_PREMIUM];
 
-const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, userId }) => {
+const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, userId, locale, isLoggedIn, freeTrial }) => {
     const t = useTranslations('video');
+    const tTrial = useTranslations('freeTrial');
     const [prompt, setPrompt] = useState('');
     const [model, setModel] = useState<ModelType>(ModelType.SORA_TEXT); // Default to cheapest model
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
+    const [showExhaustedModal, setShowExhaustedModal] = useState(false);
 
     // Get current credit cost
     const creditCost = getModelCreditCost(model);
 
     // Get current model hint
     const currentModelConfig = VIDEO_MODELS.find(m => m.value === model);
+
+    // Free trial state
+    const { canGenerateVideo, videosRemaining, useVideoTrial, isLoading: isTrialLoading } = freeTrial;
+    const canUseTrial = !isLoggedIn && canGenerateVideo;
 
     // Generation state
     const [status, setStatus] = useState<GenerationStatus>('idle');
@@ -96,6 +115,7 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
     const [error, setError] = useState<string | null>(null);
     const [currentPrompt, setCurrentPrompt] = useState<string>('');
     const [isEnhancing, setIsEnhancing] = useState(false);
+    const [isTrialGeneration, setIsTrialGeneration] = useState(false);
 
     // AI Enhance prompt handler
     const handleEnhancePrompt = async () => {
@@ -190,15 +210,36 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
     }, [currentPrompt, onGenerateComplete]);
 
     const handleGenerate = async () => {
-        if (!prompt.trim() || !userId) return;
+        if (!prompt.trim()) return;
+
+        // Check if this is a free trial generation or logged-in user generation
+        const usingTrial = !isLoggedIn && canUseTrial;
+
+        if (!usingTrial && !userId) {
+            // Not logged in and no trial available - show exhausted modal
+            setShowExhaustedModal(true);
+            return;
+        }
 
         // Debug: Log selected model
-        console.log('Generating video with model:', model, 'Credit cost:', creditCost);
+        console.log('Generating video with model:', model, 'Credit cost:', creditCost, 'Using trial:', usingTrial);
 
-        const success = await deductCredits(creditCost);
-        if (!success) {
-            setError(t('errorInsufficientCredits'));
-            return;
+        if (usingTrial) {
+            // Use free trial
+            const trialUsed = useVideoTrial();
+            if (!trialUsed) {
+                setShowExhaustedModal(true);
+                return;
+            }
+            setIsTrialGeneration(true);
+        } else {
+            // Deduct credits for logged-in user
+            const success = await deductCredits(creditCost);
+            if (!success) {
+                setError(t('errorInsufficientCredits'));
+                return;
+            }
+            setIsTrialGeneration(false);
         }
 
         setStatus('starting');
@@ -207,22 +248,24 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
         setProgress(0);
         setCurrentPrompt(prompt);
 
-        // Create a Firebase record to track the generation
+        // Create a Firebase record to track the generation (only for logged-in users)
         let docId: string | null = null;
 
         try {
-            // Save to Firebase with processing status (for all models)
-            docId = await saveVideoGeneration({
-                userId,
-                prompt,
-                videoUrl: '',
-                status: 'processing',
-                model: model, // Uses the actual ModelType value (e.g., 'sora-2-text-to-video')
-                aspectRatio,
-                duration: 8,
-                creditsUsed: creditCost,
-                createdAt: new Date().toISOString(),
-            });
+            if (userId) {
+                // Save to Firebase with processing status (for all models)
+                docId = await saveVideoGeneration({
+                    userId,
+                    prompt,
+                    videoUrl: '',
+                    status: 'processing',
+                    model: model, // Uses the actual ModelType value (e.g., 'sora-2-text-to-video')
+                    aspectRatio,
+                    duration: 8,
+                    creditsUsed: usingTrial ? 0 : creditCost,
+                    createdAt: new Date().toISOString(),
+                });
+            }
 
             setStatus('processing');
             setProgress(10);
@@ -230,12 +273,14 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
             // Use unified generator for ALL models
             const videoUrl = await generateVideoUnified(prompt, model, aspectRatio);
 
-            // Update Firebase with completed status
-            await updateVideoGeneration(docId, {
-                videoUrl,
-                status: 'completed',
-                completedAt: new Date().toISOString(),
-            });
+            // Update Firebase with completed status (only for logged-in users)
+            if (docId) {
+                await updateVideoGeneration(docId, {
+                    videoUrl,
+                    status: 'completed',
+                    completedAt: new Date().toISOString(),
+                });
+            }
 
             setResultUrl(videoUrl);
             setStatus('completed');
@@ -347,6 +392,25 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
     // Default idle state - show form
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+            {/* Free Trial Banner - show for non-logged-in users */}
+            {!isLoggedIn && !isTrialLoading && (
+                <FreeTrialBanner
+                    locale={locale}
+                    type="video"
+                    remaining={videosRemaining}
+                    total={FREE_TRIAL_CONFIG.maxVideos}
+                    isLoggedIn={isLoggedIn}
+                />
+            )}
+
+            {/* Trial Exhausted Modal */}
+            <TrialExhaustedModal
+                locale={locale}
+                type="video"
+                isOpen={showExhaustedModal}
+                onClose={() => setShowExhaustedModal(false)}
+            />
+
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t('title')}</h1>
@@ -438,13 +502,13 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                             </div>
                             <Button
                                 onClick={handleGenerate}
-                                disabled={!prompt || !userId}
+                                disabled={!prompt || (!userId && !canUseTrial)}
                                 size="lg"
                                 className="w-full sm:w-auto shadow-lg shadow-primary/20"
                             >
-                                {t('generateButton')}
+                                {canUseTrial && !isLoggedIn ? tTrial('trialGeneration') : t('generateButton')}
                                 <span className="ml-2 px-2 py-0.5 rounded bg-black/20 text-xs">
-                                    {creditCost} {t('credits') || 'credits'}
+                                    {canUseTrial && !isLoggedIn ? tTrial('noCreditsNeeded') : `${creditCost} ${t('credits') || 'credits'}`}
                                 </span>
                             </Button>
                         </div>
