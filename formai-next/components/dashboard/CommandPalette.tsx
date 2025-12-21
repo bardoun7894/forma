@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getUserVideos, getUserImages, getUserAvatars } from '@/lib/database';
+import { cn } from '@/lib/utils';
 import {
     IconVideo,
     IconPhoto,
@@ -45,6 +47,8 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
     const { userData } = useAuth();
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
 
     // Toggle the menu when ⌘K is pressed
     useEffect(() => {
@@ -229,12 +233,20 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
             {/* Trigger button (optional, keyboard shortcut is primary) */}
             <button
                 onClick={() => setOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all text-gray-400 text-sm"
+                className={cn(
+                    "hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-sm",
+                    isDark
+                        ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-gray-400"
+                        : "bg-gray-100 hover:bg-gray-200 border-gray-200 hover:border-gray-300 text-gray-600"
+                )}
                 aria-label={t('openPalette')}
             >
                 <IconSearch className="w-4 h-4" />
                 <span className="hidden md:inline">{t('quickActions')}</span>
-                <kbd className="hidden md:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/10 text-xs text-gray-500">
+                <kbd className={cn(
+                    "hidden md:flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs",
+                    isDark ? "bg-white/10 text-gray-500" : "bg-gray-200 text-gray-500"
+                )}>
                     <IconCommand className="w-3 h-3" />K
                 </kbd>
             </button>
@@ -260,24 +272,32 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
                             transition={{ duration: 0.15 }}
                             className="fixed left-1/2 top-[20%] -translate-x-1/2 w-full max-w-lg z-[201] px-4"
                         >
-                            <Command className="bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden ring-1 ring-white/5">
+                            <Command className={cn(
+                                "rounded-2xl shadow-2xl overflow-hidden ring-1 border",
+                                isDark
+                                    ? "bg-[#0d1117] border-white/10 shadow-black/50 ring-white/5"
+                                    : "bg-white border-gray-200 shadow-gray-200/50 ring-gray-200"
+                            )}>
                                 {/* Search input */}
-                                <div className="flex items-center gap-3 px-4 border-b border-white/10">
-                                    <IconSearch className="w-5 h-5 text-gray-400" />
+                                <div className={cn("flex items-center gap-3 px-4 border-b", isDark ? "border-white/10" : "border-gray-200")}>
+                                    <IconSearch className={cn("w-5 h-5", isDark ? "text-gray-400" : "text-gray-500")} />
                                     <Command.Input
                                         ref={inputRef}
                                         value={search}
                                         onValueChange={setSearch}
                                         placeholder={t('searchPlaceholder')}
-                                        className="flex-1 py-4 bg-transparent text-white placeholder-gray-500 outline-none"
+                                        className={cn(
+                                            "flex-1 py-4 bg-transparent outline-none",
+                                            isDark ? "text-white placeholder-gray-500" : "text-gray-900 placeholder-gray-400"
+                                        )}
                                         autoFocus
                                     />
-                                    <kbd className="px-2 py-1 rounded bg-white/10 text-xs text-gray-500">ESC</kbd>
+                                    <kbd className={cn("px-2 py-1 rounded text-xs", isDark ? "bg-white/10 text-gray-500" : "bg-gray-100 text-gray-500")}>ESC</kbd>
                                 </div>
 
                                 {/* Results */}
                                 <Command.List className="max-h-80 overflow-y-auto p-2">
-                                    <Command.Empty className="py-8 text-center text-gray-400 text-sm">
+                                    <Command.Empty className={cn("py-8 text-center text-sm", isDark ? "text-gray-400" : "text-gray-500")}>
                                         {t('noResults')}
                                     </Command.Empty>
 
@@ -287,7 +307,7 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
                                             heading={group.group}
                                             className="mb-2"
                                         >
-                                            <div className="px-2 py-1.5 text-xs text-gray-500 font-medium">
+                                            <div className={cn("px-2 py-1.5 text-xs font-medium", isDark ? "text-gray-500" : "text-gray-400")}>
                                                 {group.group}
                                             </div>
                                             {group.items.map((item) => {
@@ -296,14 +316,19 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
                                                     <Command.Item
                                                         key={item.label}
                                                         onSelect={() => runCommand(item.action)}
-                                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-gray-300 hover:text-white hover:bg-white/10 transition-colors data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
+                                                        className={cn(
+                                                            "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors",
+                                                            isDark
+                                                                ? "text-gray-300 hover:text-white hover:bg-white/10 data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
+                                                                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 data-[selected=true]:bg-gray-100 data-[selected=true]:text-gray-900"
+                                                        )}
                                                     >
-                                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", isDark ? "bg-white/5" : "bg-gray-100")}>
                                                             <Icon className="w-4 h-4 text-primary" />
                                                         </div>
                                                         <span className="flex-1">{item.label}</span>
                                                         {item.shortcut && (
-                                                            <kbd className="px-2 py-1 rounded bg-white/5 text-xs text-gray-500">
+                                                            <kbd className={cn("px-2 py-1 rounded text-xs", isDark ? "bg-white/5 text-gray-500" : "bg-gray-100 text-gray-400")}>
                                                                 {item.shortcut}
                                                             </kbd>
                                                         )}
@@ -316,7 +341,7 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
                                     {/* Library Items - only show when searching */}
                                     {search.length > 0 && libraryItems.length > 0 && (
                                         <Command.Group heading={t('groupLibrary')} className="mb-2">
-                                            <div className="px-2 py-1.5 text-xs text-gray-500 font-medium">
+                                            <div className={cn("px-2 py-1.5 text-xs font-medium", isDark ? "text-gray-500" : "text-gray-400")}>
                                                 {t('groupLibrary')}
                                             </div>
                                             {libraryItems
@@ -339,24 +364,29 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
                                                                     router.push(`/${locale}/library`);
                                                                 }
                                                             })}
-                                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-gray-300 hover:text-white hover:bg-white/10 transition-colors data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
+                                                            className={cn(
+                                                                "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors",
+                                                                isDark
+                                                                    ? "text-gray-300 hover:text-white hover:bg-white/10 data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
+                                                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 data-[selected=true]:bg-gray-100 data-[selected=true]:text-gray-900"
+                                                            )}
                                                         >
-                                                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                                                            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", isDark ? "bg-white/5" : "bg-gray-100")}>
                                                                 <Icon className={`w-4 h-4 ${iconColor}`} />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="truncate text-sm">
+                                                                <p className={cn("truncate text-sm", isDark ? "text-gray-300" : "text-gray-700")}>
                                                                     {item.prompt.length > 40
                                                                         ? `${item.prompt.slice(0, 40)}...`
                                                                         : item.prompt}
                                                                 </p>
-                                                                <p className="text-xs text-gray-500 capitalize">{item.type}</p>
+                                                                <p className={cn("text-xs capitalize", isDark ? "text-gray-500" : "text-gray-400")}>{item.type}</p>
                                                             </div>
                                                         </Command.Item>
                                                     );
                                                 })}
                                             {isLoadingLibrary && (
-                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                <div className={cn("px-3 py-2 text-xs", isDark ? "text-gray-500" : "text-gray-400")}>
                                                     {t('loadingLibrary')}
                                                 </div>
                                             )}
@@ -365,14 +395,14 @@ export function CommandPalette({ locale }: CommandPaletteProps) {
                                 </Command.List>
 
                                 {/* Footer */}
-                                <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 text-xs text-gray-500">
+                                <div className={cn("flex items-center justify-between px-4 py-3 border-t text-xs", isDark ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-400")}>
                                     <div className="flex items-center gap-4">
                                         <span className="flex items-center gap-1">
-                                            <kbd className="px-1.5 py-0.5 rounded bg-white/10">↑↓</kbd>
+                                            <kbd className={cn("px-1.5 py-0.5 rounded", isDark ? "bg-white/10" : "bg-gray-100")}>↑↓</kbd>
                                             {t('navigate')}
                                         </span>
                                         <span className="flex items-center gap-1">
-                                            <kbd className="px-1.5 py-0.5 rounded bg-white/10">↵</kbd>
+                                            <kbd className={cn("px-1.5 py-0.5 rounded", isDark ? "bg-white/10" : "bg-gray-100")}>↵</kbd>
                                             {t('select')}
                                         </span>
                                     </div>

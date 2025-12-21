@@ -5,6 +5,8 @@ import { IconSparkles, IconGift, IconLogin, IconX } from '@tabler/icons-react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 
 interface FreeTrialBannerProps {
     locale: string;
@@ -16,6 +18,8 @@ interface FreeTrialBannerProps {
 
 export function FreeTrialBanner({ locale, type, remaining, total, isLoggedIn }: FreeTrialBannerProps) {
     const t = useTranslations('freeTrial');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [dismissed, setDismissed] = useState(false);
 
     if (dismissed || isLoggedIn) return null;
@@ -26,11 +30,19 @@ export function FreeTrialBanner({ locale, type, remaining, total, isLoggedIn }: 
         <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative bg-gradient-to-r from-primary/20 via-cyan-500/20 to-secondary/20 border border-primary/30 rounded-2xl p-4 mb-6"
+            className={cn(
+                "relative border rounded-2xl p-4 mb-6",
+                isDark
+                    ? "bg-gradient-to-r from-primary/20 via-cyan-500/20 to-secondary/20 border-primary/30"
+                    : "bg-gradient-to-r from-primary/10 via-cyan-500/10 to-secondary/10 border-primary/20"
+            )}
         >
             <button
                 onClick={() => setDismissed(true)}
-                className="absolute top-2 end-2 p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                className={cn(
+                    "absolute top-2 end-2 p-1 rounded-lg transition-colors",
+                    isDark ? "hover:bg-white/10 text-gray-400 hover:text-white" : "hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+                )}
             >
                 <IconX className="w-4 h-4" />
             </button>
@@ -41,11 +53,11 @@ export function FreeTrialBanner({ locale, type, remaining, total, isLoggedIn }: 
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold flex items-center gap-2">
+                    <h3 className={cn("font-semibold flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
                         {t('title')}
                         <IconSparkles className="w-4 h-4 text-yellow-400" />
                     </h3>
-                    <p className="text-gray-300 text-sm mt-1">
+                    <p className={cn("text-sm mt-1", isDark ? "text-gray-300" : "text-gray-600")}>
                         {type === 'video'
                             ? t('videoDescription', { remaining, total })
                             : t('imageDescription', { remaining, total })
@@ -54,7 +66,7 @@ export function FreeTrialBanner({ locale, type, remaining, total, isLoggedIn }: 
 
                     {/* Progress bar */}
                     <div className="mt-3 flex items-center gap-3">
-                        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div className={cn("flex-1 h-2 rounded-full overflow-hidden", isDark ? "bg-white/10" : "bg-gray-200")}>
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${(used / total) * 100}%` }}
@@ -62,14 +74,14 @@ export function FreeTrialBanner({ locale, type, remaining, total, isLoggedIn }: 
                                 className="h-full bg-gradient-to-r from-primary to-cyan-400 rounded-full"
                             />
                         </div>
-                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                        <span className={cn("text-xs whitespace-nowrap", isDark ? "text-gray-400" : "text-gray-500")}>
                             {used}/{total} {t('used')}
                         </span>
                     </div>
 
                     {/* Sign up prompt */}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-gray-400">{t('signUpPrompt')}</span>
+                        <span className={cn("text-xs", isDark ? "text-gray-400" : "text-gray-500")}>{t('signUpPrompt')}</span>
                         <Link
                             href={`/${locale}/login`}
                             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-cyan-300 transition-colors"
@@ -93,6 +105,8 @@ interface TrialExhaustedModalProps {
 
 export function TrialExhaustedModal({ locale, type, isOpen, onClose }: TrialExhaustedModalProps) {
     const t = useTranslations('freeTrial');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
 
     if (!isOpen) return null;
 
@@ -109,17 +123,20 @@ export function TrialExhaustedModal({ locale, type, isOpen, onClose }: TrialExha
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-[#0d1117] border border-white/10 rounded-2xl p-6 max-w-md w-full"
+                className={cn(
+                    "border rounded-2xl p-6 max-w-md w-full",
+                    isDark ? "bg-[#0d1117] border-white/10" : "bg-white border-gray-200"
+                )}
             >
                 <div className="text-center">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-cyan-500/10 flex items-center justify-center">
                         <IconGift className="w-8 h-8 text-primary" />
                     </div>
 
-                    <h2 className="text-xl font-bold text-white mb-2">
+                    <h2 className={cn("text-xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>
                         {t('exhaustedTitle')}
                     </h2>
-                    <p className="text-gray-400 mb-6">
+                    <p className={cn("mb-6", isDark ? "text-gray-400" : "text-gray-500")}>
                         {type === 'video' ? t('exhaustedVideoMessage') : t('exhaustedImageMessage')}
                     </p>
 
@@ -132,13 +149,18 @@ export function TrialExhaustedModal({ locale, type, isOpen, onClose }: TrialExha
                         </Link>
                         <Link
                             href={`/${locale}/login`}
-                            className="block w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors"
+                            className={cn(
+                                "block w-full py-3 px-4 rounded-xl border font-medium transition-colors",
+                                isDark
+                                    ? "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                                    : "bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100"
+                            )}
                         >
                             {t('alreadyHaveAccount')}
                         </Link>
                         <button
                             onClick={onClose}
-                            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                            className={cn("text-sm transition-colors", isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600")}
                         >
                             {t('maybeLater')}
                         </button>

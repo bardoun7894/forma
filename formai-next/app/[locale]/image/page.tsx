@@ -14,6 +14,8 @@ import { generateImageUnified, getModelCreditCost, enhancePrompt } from '@/servi
 import { Sparkles, Image as ImageIcon, Download, AlertCircle, Maximize2, Upload, X, Wand2, Layers } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 import { deductCredits as deductCreditsFirebase, saveImageGeneration } from '@/lib/database';
 
 export default function ImagePage() {
@@ -106,6 +108,8 @@ const IMAGE_MODELS = [
 const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, locale, isLoggedIn, freeTrial }) => {
     const t = useTranslations('image');
     const tTrial = useTranslations('freeTrial');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [mode, setMode] = useState<'text' | 'img2img'>('text');
     const [showExhaustedModal, setShowExhaustedModal] = useState(false);
 
@@ -300,23 +304,33 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
                 )}
 
                 <div>
-                    <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
+                    <h1 className={cn("text-2xl font-bold mb-1 flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
                         <ImageIcon className="w-6 h-6 text-primary" /> {t('title')}
                     </h1>
-                    <p className="text-gray-400 text-sm">{t('subtitle')}</p>
+                    <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-600")}>{t('subtitle')}</p>
                 </div>
 
                 {/* Mode Switcher */}
-                <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
+                <div className={cn("flex p-1 rounded-lg border", isDark ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200")}>
                     <button
                         onClick={() => setMode('text')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all ${mode === 'text' ? 'bg-primary text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all",
+                            mode === 'text'
+                                ? 'bg-primary text-black shadow-lg'
+                                : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                        )}
                     >
                         <Wand2 className="w-4 h-4" /> {t('modeText')}
                     </button>
                     <button
                         onClick={() => setMode('img2img')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all ${mode === 'img2img' ? 'bg-primary text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all",
+                            mode === 'img2img'
+                                ? 'bg-primary text-black shadow-lg'
+                                : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                        )}
                     >
                         <Layers className="w-4 h-4" /> {t('modeImg2Img')}
                     </button>
@@ -326,10 +340,14 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
 
                     {mode === 'img2img' && (
                         <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                            <label className="block text-sm font-medium text-gray-400">{t('referenceImageLabel')}</label>
+                            <label className={cn("block text-sm font-medium", isDark ? "text-gray-400" : "text-gray-700")}>{t('referenceImageLabel')}</label>
                             <div
-                                className={`relative w-full aspect-[3/2] rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group ${uploadedImage ? 'border-primary/50 bg-black/40' : 'border-white/10 hover:border-white/30 hover:bg-white/5'
-                                    }`}
+                                className={cn(
+                                    "relative w-full aspect-[3/2] rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group",
+                                    uploadedImage
+                                        ? (isDark ? 'border-primary/50 bg-black/40' : 'border-primary/50 bg-gray-100')
+                                        : (isDark ? 'border-white/10 hover:border-white/30 hover:bg-white/5' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50')
+                                )}
                                 onClick={() => !uploadedImage && fileInputRef.current?.click()}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={handleDrop}
@@ -347,8 +365,8 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
                                     </>
                                 ) : (
                                     <div className="text-center p-4">
-                                        <Upload className="w-6 h-6 mx-auto mb-2 text-gray-400" />
-                                        <p className="text-xs text-gray-500">{t('dropImageText')}</p>
+                                        <Upload className={cn("w-6 h-6 mx-auto mb-2", isDark ? "text-gray-400" : "text-gray-500")} />
+                                        <p className={cn("text-xs", isDark ? "text-gray-500" : "text-gray-600")}>{t('dropImageText')}</p>
                                     </div>
                                 )}
                             </div>
@@ -357,13 +375,18 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
 
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-gray-400">
+                            <label className={cn("block text-sm font-medium", isDark ? "text-gray-400" : "text-gray-700")}>
                                 {mode === 'text' ? t('promptLabel') : t('transformationPromptLabel')}
                             </label>
                             <button
                                 onClick={handleEnhancePrompt}
                                 disabled={!prompt.trim() || isEnhancing}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-500/20 to-primary/20 border border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+                                    isDark
+                                        ? "bg-gradient-to-r from-purple-500/20 to-primary/20 border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200"
+                                        : "bg-gradient-to-r from-purple-100 to-primary/10 border-purple-300 text-purple-700 hover:from-purple-200 hover:to-primary/20 hover:text-purple-800"
+                                )}
                                 title={t('enhancePromptTooltip') || 'Enhance prompt with AI'}
                             >
                                 <Wand2 className={`w-3.5 h-3.5 ${isEnhancing ? 'animate-spin' : ''}`} />
@@ -381,13 +404,18 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
 
                     {/* Presets (Available in both modes, but contextually useful) */}
                     <div className="space-y-2">
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">{t('quickStylesLabel')}</label>
+                        <label className={cn("block text-xs font-medium uppercase tracking-wider", isDark ? "text-gray-500" : "text-gray-600")}>{t('quickStylesLabel')}</label>
                         <div className="flex flex-wrap gap-2">
                             {STYLE_PRESETS.map((style) => (
                                 <button
                                     key={style.key}
                                     onClick={() => applyPreset(style.prompt)}
-                                    className="px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all"
+                                    className={cn(
+                                        "px-2.5 py-1.5 rounded-lg text-[10px] font-medium border transition-all",
+                                        isDark
+                                            ? "bg-white/5 border-white/5 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/20"
+                                            : "bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 hover:border-gray-300"
+                                    )}
                                 >
                                     + {getStyleName(style.key)}
                                 </button>
@@ -406,14 +434,19 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
                             }))}
                         />
                         {currentModelConfig && (
-                            <p className="text-xs text-primary/80 px-1">
+                            <p className={cn("text-xs px-1", isDark ? "text-primary/80" : "text-primary")}>
                                 {t(currentModelConfig.hintKey)}
                             </p>
                         )}
                     </div>
 
                     {error && (
-                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2">
+                        <div className={cn(
+                            "p-3 rounded-lg text-xs flex items-start gap-2 border",
+                            isDark
+                                ? "bg-red-500/10 border-red-500/20 text-red-400"
+                                : "bg-red-50 border-red-200 text-red-700"
+                        )}>
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                             {error}
                         </div>
@@ -440,16 +473,16 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
 
             {/* Output Panel */}
             <div className="lg:w-2/3">
-                <GlassCard className="h-full relative overflow-hidden flex items-center justify-center bg-black/20 p-4 lg:p-0 border-primary/10">
+                <GlassCard className={cn("h-full relative overflow-hidden flex items-center justify-center p-4 lg:p-0 border-primary/10", isDark ? "bg-black/20" : "bg-gray-50")}>
                     {isGenerating ? (
                         <div className="text-center">
                             <div className="relative w-16 h-16 mx-auto mb-6">
                                 <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
                                 <div className="absolute inset-2 rounded-full border-r-2 border-purple-500 animate-spin animation-delay-200" />
-                                <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-white animate-pulse" />
+                                <Sparkles className={cn("absolute inset-0 m-auto w-6 h-6 animate-pulse", isDark ? "text-white" : "text-primary")} />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">{t('loadingTitle')}</h3>
-                            <p className="text-gray-400 animate-pulse text-sm">
+                            <h3 className={cn("text-xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('loadingTitle')}</h3>
+                            <p className={cn("animate-pulse text-sm", isDark ? "text-gray-400" : "text-gray-600")}>
                                 {mode === 'text' ? t('loadingDescriptionText') : t('loadingDescriptionImg2Img')}
                             </p>
                         </div>
@@ -471,12 +504,12 @@ const ImageGen: React.FC<ImageGenProps> = ({ onGenerateComplete, deductCredits, 
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center text-gray-600">
-                            <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 border border-white/5">
+                        <div className={cn("text-center", isDark ? "text-gray-600" : "text-gray-500")}>
+                            <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border", isDark ? "bg-white/5 border-white/5" : "bg-gray-100 border-gray-200")}>
                                 {mode === 'text' ? <ImageIcon className="w-8 h-8 opacity-30" /> : <Layers className="w-8 h-8 opacity-30" />}
                             </div>
-                            <p className="text-lg font-medium text-gray-500">{t('emptyStateTitle')}</p>
-                            <p className="text-sm max-w-xs mx-auto mt-2 opacity-60">
+                            <p className={cn("text-lg font-medium", isDark ? "text-gray-500" : "text-gray-600")}>{t('emptyStateTitle')}</p>
+                            <p className={cn("text-sm max-w-xs mx-auto mt-2 opacity-60", isDark ? "text-gray-500" : "text-gray-600")}>
                                 {mode === 'text' ? t('emptyStateDescriptionText') : t('emptyStateDescriptionImg2Img')}
                             </p>
                         </div>

@@ -15,6 +15,8 @@ import { pollVideoStatus, AIServiceError, generateVideoUnified, getModelCreditCo
 import { Sparkles, Video, Settings2, Download, AlertCircle, RefreshCw, Wand2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 import { deductCredits as deductCreditsFirebase, getPendingVideos, saveVideoGeneration, updateVideoGeneration, type VideoGeneration } from '@/lib/database';
 
 type GenerationStatus = 'idle' | 'starting' | 'processing' | 'completed' | 'failed';
@@ -92,6 +94,8 @@ const VIDEO_MODELS = [...VIDEO_MODELS_STANDARD, ...VIDEO_MODELS_PREMIUM];
 const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, userId, locale, isLoggedIn, freeTrial }) => {
     const t = useTranslations('video');
     const tTrial = useTranslations('freeTrial');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [prompt, setPrompt] = useState('');
     const [model, setModel] = useState<ModelType>(ModelType.SORA_TEXT); // Default to cheapest model
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
@@ -340,8 +344,8 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
             <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t('title')}</h1>
-                        <p className="text-gray-400">{t('subtitle')}</p>
+                        <h1 className={cn("text-2xl sm:text-3xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('title')}</h1>
+                        <p className={cn(isDark ? "text-gray-400" : "text-gray-600")}>{t('subtitle')}</p>
                     </div>
                     {(status === 'completed' || status === 'failed') && (
                         <Button onClick={handleReset} variant="secondary" size="sm">
@@ -360,7 +364,12 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                 />
 
                 {(status === 'starting' || status === 'processing') && (
-                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm text-center">
+                    <div className={cn(
+                        "p-4 rounded-lg text-sm text-center border",
+                        isDark
+                            ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                            : "bg-blue-50 border-blue-200 text-blue-700"
+                    )}>
                         {t('canLeaveMessage')}
                     </div>
                 )}
@@ -413,8 +422,8 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
 
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t('title')}</h1>
-                    <p className="text-gray-400">{t('subtitle')}</p>
+                    <h1 className={cn("text-2xl sm:text-3xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('title')}</h1>
+                    <p className={cn(isDark ? "text-gray-400" : "text-gray-600")}>{t('subtitle')}</p>
                 </div>
             </div>
 
@@ -424,11 +433,16 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                     <GlassCard className="p-6 space-y-6">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium text-gray-300">{t('promptLabel')}</label>
+                                <label className={cn("text-sm font-medium", isDark ? "text-gray-300" : "text-gray-700")}>{t('promptLabel')}</label>
                                 <button
                                     onClick={handleEnhancePrompt}
                                     disabled={!prompt.trim() || isEnhancing}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-500/20 to-primary/20 border border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+                                        isDark
+                                            ? "bg-gradient-to-r from-purple-500/20 to-primary/20 border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200"
+                                            : "bg-gradient-to-r from-purple-100 to-primary/10 border-purple-300 text-purple-700 hover:from-purple-200 hover:to-primary/20 hover:text-purple-800"
+                                    )}
                                     title={t('enhancePromptTooltip') || 'Enhance prompt with AI'}
                                 >
                                     <Wand2 className={`w-3.5 h-3.5 ${isEnhancing ? 'animate-spin' : ''}`} />
@@ -446,7 +460,7 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-300">{t('modelLabel')}</label>
+                                <label className={cn("text-sm font-medium", isDark ? "text-gray-300" : "text-gray-700")}>{t('modelLabel')}</label>
                                 <select
                                     value={model}
                                     onChange={(e) => {
@@ -454,25 +468,30 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                                         console.log('Model changed to:', newModel);
                                         setModel(newModel);
                                     }}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                                    className={cn(
+                                        "w-full rounded-xl px-4 py-3 border focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all",
+                                        isDark
+                                            ? "bg-white/5 border-white/10 text-white"
+                                            : "bg-white border-gray-300 text-gray-900"
+                                    )}
                                 >
                                     <optgroup label={t('standardModels') || 'Standard Models'}>
                                         {VIDEO_MODELS_STANDARD.map(m => (
-                                            <option key={m.value} value={m.value}>
+                                            <option key={m.value} value={m.value} className={isDark ? "bg-[#1a1a1a]" : "bg-white"}>
                                                 {t(m.labelKey)} ({CREDIT_COSTS[m.value]} {t('credits') || 'credits'})
                                             </option>
                                         ))}
                                     </optgroup>
                                     <optgroup label={t('premiumModels') || '⭐ Premium Models'}>
                                         {VIDEO_MODELS_PREMIUM.map(m => (
-                                            <option key={m.value} value={m.value}>
+                                            <option key={m.value} value={m.value} className={isDark ? "bg-[#1a1a1a]" : "bg-white"}>
                                                 {t(m.labelKey)} ({CREDIT_COSTS[m.value]} {t('credits') || 'credits'})
                                             </option>
                                         ))}
                                     </optgroup>
                                 </select>
                                 {currentModelConfig && (
-                                    <p className="text-xs text-primary/80 px-1">
+                                    <p className={cn("text-xs px-1", isDark ? "text-primary/80" : "text-primary")}>
                                         {t(currentModelConfig.hintKey)}
                                     </p>
                                 )}
@@ -489,14 +508,19 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                         </div>
 
                         {error && (
-                            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-start gap-3">
+                            <div className={cn(
+                                "p-4 rounded-lg flex items-start gap-3 border",
+                                isDark
+                                    ? "bg-red-500/10 border-red-500/20 text-red-400"
+                                    : "bg-red-50 border-red-200 text-red-700"
+                            )}>
                                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                                 <p className="text-sm">{error}</p>
                             </div>
                         )}
 
-                        <div className="pt-4 flex items-center justify-between border-t border-white/10">
-                            <div className="text-sm text-gray-500 flex items-center gap-2">
+                        <div className={cn("pt-4 flex items-center justify-between border-t", isDark ? "border-white/10" : "border-gray-200")}>
+                            <div className={cn("text-sm flex items-center gap-2", isDark ? "text-gray-500" : "text-gray-600")}>
                                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
                                 {t('systemOnline')}
                             </div>
@@ -514,7 +538,7 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                         </div>
                     </GlassCard>
 
-                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                    <div className={cn("flex items-center justify-center gap-2 text-sm", isDark ? "text-gray-500" : "text-gray-600")}>
                         <Settings2 className="w-4 h-4" /> {t('advancedSettings')}
                     </div>
                 </div>
@@ -522,11 +546,11 @@ const VideoGen: React.FC<VideoGenProps> = ({ onGenerateComplete, deductCredits, 
                 {/* Right: Preview / Info */}
                 <div className="lg:col-span-1">
                     <GlassCard className="p-8 text-center h-full flex flex-col items-center justify-center min-h-[300px] border-dashed">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                            <Video className="w-6 h-6 text-gray-600" />
+                        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isDark ? "bg-white/5" : "bg-gray-100")}>
+                            <Video className={cn("w-6 h-6", isDark ? "text-gray-600" : "text-gray-500")} />
                         </div>
-                        <p className="text-gray-500 text-sm mb-4">{t('emptyState')}</p>
-                        <div className="text-xs text-gray-600 space-y-1">
+                        <p className={cn("text-sm mb-4", isDark ? "text-gray-500" : "text-gray-600")}>{t('emptyState')}</p>
+                        <div className={cn("text-xs space-y-1", isDark ? "text-gray-600" : "text-gray-500")}>
                             <p>~2-5 min generation time</p>
                             <p>8 second video clips</p>
                         </div>

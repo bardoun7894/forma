@@ -2,9 +2,11 @@
 
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BentoGrid, BentoGridItem } from '@/components/ui/BentoGrid';
+import { cn } from '@/lib/utils';
 import {
     IconVideo,
     IconPhoto,
@@ -37,6 +39,8 @@ import {
 export default function DashboardPage() {
     const t = useTranslations('dashboard');
     const { userData } = useAuth();
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const params = useParams();
     const locale = params.locale as string;
 
@@ -139,17 +143,22 @@ export default function DashboardPage() {
 
     // Skeleton loader for recent items
     const RecentItemSkeleton = () => (
-        <div className="relative aspect-square bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-2xl overflow-hidden animate-pulse">
-            <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+        <div className={cn(
+            "relative aspect-square rounded-2xl overflow-hidden animate-pulse border",
+            isDark
+                ? "bg-gradient-to-br from-white/5 to-white/[0.02] border-white/10"
+                : "bg-gradient-to-br from-gray-100 to-gray-50 border-gray-200"
+        )}>
+            <div className={cn("w-full h-full", isDark ? "bg-gradient-to-br from-white/10 to-white/5" : "bg-gray-100")} />
             <div className="absolute top-2 left-2">
-                <div className="w-14 h-5 rounded-lg bg-white/20" />
+                <div className={cn("w-14 h-5 rounded-lg", isDark ? "bg-white/20" : "bg-gray-300")} />
             </div>
             <div className="absolute top-2 right-2">
-                <div className="w-10 h-5 rounded-lg bg-white/20" />
+                <div className={cn("w-10 h-5 rounded-lg", isDark ? "bg-white/20" : "bg-gray-300")} />
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
-                <div className="h-3 w-3/4 rounded bg-white/20 mb-1" />
-                <div className="h-3 w-1/2 rounded bg-white/10" />
+                <div className={cn("h-3 w-3/4 rounded mb-1", isDark ? "bg-white/20" : "bg-gray-300")} />
+                <div className={cn("h-3 w-1/2 rounded", isDark ? "bg-white/10" : "bg-gray-200")} />
             </div>
         </div>
     );
@@ -175,14 +184,14 @@ export default function DashboardPage() {
                 className="relative z-10"
             >
                 <div className="space-y-1 sm:space-y-2">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white flex flex-wrap items-center gap-2 sm:gap-3">
+                    <h1 className={cn("text-2xl sm:text-3xl font-bold flex flex-wrap items-center gap-2 sm:gap-3", isDark ? "text-white" : "text-gray-900")}>
                         <span>{t('welcome')},</span>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-cyan-400 to-secondary">
                             {userData?.displayName?.split(' ')[0] || 'Creator'}
                         </span>
                         <IconSparkles className="w-6 h-6 sm:w-7 sm:h-7 text-yellow-400 animate-pulse" />
                     </h1>
-                    <p className="text-gray-400 text-base sm:text-lg">{t('heroGreeting')}</p>
+                    <p className={cn("text-base sm:text-lg", isDark ? "text-gray-400" : "text-gray-600")}>{t('heroGreeting')}</p>
                 </div>
             </motion.div>
 
@@ -223,7 +232,7 @@ export default function DashboardPage() {
                 role="region"
                 aria-label="Quick actions"
             >
-                <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5 flex items-center gap-2">
+                <h2 className={cn("text-lg sm:text-xl font-bold mb-4 sm:mb-5 flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
                     <IconSparkles className="w-5 h-5 text-primary" />
                     {t('quickActions')}
                 </h2>
@@ -260,7 +269,7 @@ export default function DashboardPage() {
                 aria-label="Recent activity"
             >
                 <div className="flex items-center justify-between mb-4 sm:mb-5 gap-2">
-                    <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                    <h2 className={cn("text-lg sm:text-xl font-bold flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
                         <IconClock className="w-5 h-5 text-primary flex-shrink-0" />
                         <span className="truncate">{t('recentActivity')}</span>
                     </h2>
@@ -271,15 +280,25 @@ export default function DashboardPage() {
 
                 {/* Error state */}
                 {error ? (
-                    <div className="bg-gradient-to-br from-red-500/5 to-red-500/[0.02] border border-red-500/20 rounded-2xl p-12">
+                    <div className={cn(
+                        "rounded-2xl p-12 border",
+                        isDark
+                            ? "bg-gradient-to-br from-red-500/5 to-red-500/[0.02] border-red-500/20"
+                            : "bg-red-50 border-red-200"
+                    )}>
                         <div className="flex flex-col items-center justify-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center">
+                            <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", isDark ? "bg-red-500/10" : "bg-red-100")}>
                                 <IconAlertCircle className="w-8 h-8 text-red-400" />
                             </div>
-                            <p className="text-gray-300 text-center">Failed to load your creations. Please try again.</p>
+                            <p className={cn("text-center", isDark ? "text-gray-300" : "text-gray-600")}>Failed to load your creations. Please try again.</p>
                             <Button
                                 onClick={() => refetch()}
-                                className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300"
+                                className={cn(
+                                    "border",
+                                    isDark
+                                        ? "bg-red-500/20 hover:bg-red-500/30 border-red-500/30 text-red-300"
+                                        : "bg-red-100 hover:bg-red-200 border-red-300 text-red-600"
+                                )}
                             >
                                 <IconRefresh className="w-4 h-4 mr-2" /> Try Again
                             </Button>
@@ -303,7 +322,12 @@ export default function DashboardPage() {
                             >
                                 <Link
                                     href={`/${locale}/library`}
-                                    className="group relative aspect-square bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 block"
+                                    className={cn(
+                                        "group relative aspect-square rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 block border",
+                                        isDark
+                                            ? "bg-gradient-to-br from-white/5 to-white/[0.02] border-white/10"
+                                            : "bg-white border-gray-200 shadow-sm"
+                                    )}
                                 >
                                     {item.type === 'video' ? (
                                         <>
@@ -360,13 +384,18 @@ export default function DashboardPage() {
                     </div>
                 ) : (
                     /* Empty state */
-                    <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 border-dashed rounded-2xl p-8 sm:p-12">
+                    <div className={cn(
+                        "border-dashed rounded-2xl p-8 sm:p-12 border",
+                        isDark
+                            ? "bg-gradient-to-br from-white/5 to-white/[0.02] border-white/10"
+                            : "bg-gray-50 border-gray-300"
+                    )}>
                         <div className="text-center">
                             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-cyan-500/10 flex items-center justify-center">
                                 <IconFolder className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
                             </div>
-                            <h3 className="text-lg sm:text-xl font-bold text-white mb-2">{t('emptyLibraryTitle')}</h3>
-                            <p className="text-gray-400 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base">{t('emptyLibrarySubtitle')}</p>
+                            <h3 className={cn("text-lg sm:text-xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('emptyLibraryTitle')}</h3>
+                            <p className={cn("mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base", isDark ? "text-gray-400" : "text-gray-600")}>{t('emptyLibrarySubtitle')}</p>
                             <Link href={`/${locale}/video`}>
                                 <Button className="bg-gradient-to-r from-primary via-cyan-400 to-secondary hover:opacity-90 text-black font-bold px-6 sm:px-10 py-3 sm:py-4 rounded-xl shadow-xl shadow-primary/40 text-sm sm:text-base">
                                     <IconSparkles className="w-5 h-5 sm:w-6 sm:h-6 mr-2" /> {t('startNow')}

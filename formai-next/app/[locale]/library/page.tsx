@@ -7,6 +7,8 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 import { getUserVideos, getUserImages, getUserAvatars, updateVideoGeneration, deleteVideo, deleteImage, deleteAvatar, type VideoGeneration, type ImageGeneration, type AvatarGeneration } from '@/lib/database';
 import { pollVideoStatus } from '@/services/aiService';
 import {
@@ -172,6 +174,8 @@ interface LibraryContentProps {
 
 const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, isLoading = false }) => {
     const t = useTranslations('library');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [filterType, setFilterType] = useState<'all' | 'video' | 'image' | 'text'>('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -219,33 +223,40 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight mb-1">{t('title')}</h1>
-                    <p className="text-gray-400 text-sm">{t('subtitle')}</p>
+                    <h1 className={cn("text-3xl font-bold tracking-tight mb-1", isDark ? "text-white" : "text-gray-900")}>{t('title')}</h1>
+                    <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-600")}>{t('subtitle')}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     {/* Search */}
                     <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", isDark ? "text-gray-500" : "text-gray-400")} />
                         <input
                             type="text"
                             placeholder={t('searchPlaceholder')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                            className={cn(
+                                "w-full rounded-lg pl-9 pr-4 py-2.5 text-sm border focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all",
+                                isDark
+                                    ? "bg-white/5 border-white/10 text-white"
+                                    : "bg-white border-gray-300 text-gray-900"
+                            )}
                         />
                     </div>
 
                     {/* Type Filter */}
-                    <div className="hidden md:flex bg-white/5 border border-white/10 rounded-lg p-1">
+                    <div className={cn("hidden md:flex rounded-lg p-1 border", isDark ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200")}>
                         {['all', 'video', 'image', 'text'].map((type) => (
                             <button
                                 key={type}
                                 onClick={() => setFilterType(type as any)}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all ${filterType === type
-                                        ? 'bg-white/10 text-white shadow-sm'
-                                        : 'text-gray-400 hover:text-white'
-                                    }`}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-all",
+                                    filterType === type
+                                        ? (isDark ? 'bg-white/10 text-white shadow-sm' : 'bg-white text-gray-900 shadow-sm')
+                                        : (isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
+                                )}
                             >
                                 {type === 'all' ? t('filterAll') : type === 'video' ? t('filterVideo') : type === 'image' ? t('filterImage') : t('filterText')}
                             </button>
@@ -253,16 +264,26 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                     </div>
 
                     {/* View Toggle */}
-                    <div className="flex bg-white/5 border border-white/10 rounded-lg p-1">
+                    <div className={cn("flex rounded-lg p-1 border", isDark ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200")}>
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white/10 text-primary' : 'text-gray-400 hover:text-white'}`}
+                            className={cn(
+                                "p-2 rounded-md transition-all",
+                                viewMode === 'grid'
+                                    ? (isDark ? 'bg-white/10 text-primary' : 'bg-white text-primary shadow-sm')
+                                    : (isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')
+                            )}
                         >
                             <GridIcon className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white/10 text-primary' : 'text-gray-400 hover:text-white'}`}
+                            className={cn(
+                                "p-2 rounded-md transition-all",
+                                viewMode === 'list'
+                                    ? (isDark ? 'bg-white/10 text-primary' : 'bg-white text-primary shadow-sm')
+                                    : (isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')
+                            )}
                         >
                             <ListIcon className="w-4 h-4" />
                         </button>
@@ -276,15 +297,15 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                 {isLoading ? (
                     <div className="h-full flex flex-col items-center justify-center text-center">
                         <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-                        <p className="text-gray-400 text-sm">{t('loading') || 'Loading your creations...'}</p>
+                        <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-600")}>{t('loading') || 'Loading your creations...'}</p>
                     </div>
                 ) : filteredItems.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center border-2 border-dashed border-white/5 rounded-2xl p-10">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                            <Filter className="w-6 h-6 text-gray-600" />
+                    <div className={cn("h-full flex flex-col items-center justify-center text-center border-2 border-dashed rounded-2xl p-10", isDark ? "border-white/5" : "border-gray-200")}>
+                        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isDark ? "bg-white/5" : "bg-gray-100")}>
+                            <Filter className={cn("w-6 h-6", isDark ? "text-gray-600" : "text-gray-400")} />
                         </div>
-                        <h3 className="text-xl font-semibold mb-2">{t('noAssets')}</h3>
-                        <p className="text-gray-500 max-w-sm">
+                        <h3 className={cn("text-xl font-semibold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('noAssets')}</h3>
+                        <p className={cn("max-w-sm", isDark ? "text-gray-500" : "text-gray-600")}>
                             {generations.length === 0
                                 ? t('emptyLibrary')
                                 : t('noMatches')}
@@ -298,7 +319,10 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                 {filteredItems.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="group relative aspect-square bg-white/5 rounded-xl border border-white/10 overflow-hidden cursor-pointer hover:border-primary/50 transition-all duration-300"
+                                        className={cn(
+                                            "group relative aspect-square rounded-xl border overflow-hidden cursor-pointer hover:border-primary/50 transition-all duration-300",
+                                            isDark ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200"
+                                        )}
                                         onClick={() => setSelectedItem(item)}
                                     >
                                         {/* Thumbnail */}
@@ -307,9 +331,9 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                         ) : item.type === 'image' && item.url ? (
                                             <img src={item.url} alt="thumbnail" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                         ) : (
-                                            <div className="w-full h-full p-4 flex flex-col bg-gradient-to-br from-gray-900 to-black">
+                                            <div className={cn("w-full h-full p-4 flex flex-col", isDark ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gray-100")}>
                                                 <MessageSquare className="w-8 h-8 text-blue-400 mb-2" />
-                                                <p className="text-[10px] text-gray-500 line-clamp-6 font-mono leading-relaxed">{item.content}</p>
+                                                <p className={cn("text-[10px] line-clamp-6 font-mono leading-relaxed", isDark ? "text-gray-500" : "text-gray-600")}>{item.content}</p>
                                             </div>
                                         )}
 
@@ -345,9 +369,9 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
 
                         {/* LIST VIEW */}
                         {viewMode === 'list' && (
-                            <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                            <div className={cn("rounded-xl overflow-hidden border", isDark ? "bg-white/5 border-white/10" : "bg-white border-gray-200")}>
                                 <table className="w-full text-left text-sm">
-                                    <thead className="bg-black/20 text-gray-400 font-medium">
+                                    <thead className={cn("font-medium", isDark ? "bg-black/20 text-gray-400" : "bg-gray-50 text-gray-600")}>
                                         <tr>
                                             <th className="px-6 py-4 w-20">{t('preview')}</th>
                                             <th className="px-6 py-4">{t('prompt')}</th>
@@ -356,11 +380,11 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                             <th className="px-6 py-4 w-24 text-right">{t('actions')}</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-white/5">
+                                    <tbody className={cn("divide-y", isDark ? "divide-white/5" : "divide-gray-100")}>
                                         {filteredItems.map((item) => (
-                                            <tr key={item.id} className="hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setSelectedItem(item)}>
+                                            <tr key={item.id} className={cn("transition-colors group cursor-pointer", isDark ? "hover:bg-white/5" : "hover:bg-gray-50")} onClick={() => setSelectedItem(item)}>
                                                 <td className="px-6 py-3">
-                                                    <div className="w-10 h-10 rounded bg-black/50 border border-white/10 overflow-hidden flex items-center justify-center">
+                                                    <div className={cn("w-10 h-10 rounded overflow-hidden flex items-center justify-center border", isDark ? "bg-black/50 border-white/10" : "bg-gray-100 border-gray-200")}>
                                                         {item.type === 'image' ? (
                                                             <img src={item.url} className="w-full h-full object-cover" />
                                                         ) : item.type === 'video' ? (
@@ -371,7 +395,7 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <p className="text-white line-clamp-1 max-w-md">{item.prompt}</p>
+                                                    <p className={cn("line-clamp-1 max-w-md", isDark ? "text-white" : "text-gray-900")}>{item.prompt}</p>
                                                 </td>
                                                 <td className="px-6 py-3">
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
@@ -382,13 +406,13 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                                                         <span className="capitalize">{item.type}</span>
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-3 text-gray-400 font-mono text-xs">
+                                                <td className={cn("px-6 py-3 font-mono text-xs", isDark ? "text-gray-400" : "text-gray-500")}>
                                                     {formatDate(new Date(item.createdAt))}
                                                 </td>
                                                 <td className="px-6 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button
-                                                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-md"
+                                                            className={cn("p-2 rounded-md", isDark ? "text-gray-400 hover:text-white hover:bg-white/10" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100")}
                                                             onClick={(e) => { e.stopPropagation(); handleCopyPrompt(item.prompt, item.id); }}
                                                         >
                                                             {copiedId === item.id ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
@@ -416,23 +440,23 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-200">
                     {/* Backdrop */}
                     <div
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                        className={cn("absolute inset-0 backdrop-blur-sm", isDark ? "bg-black/80" : "bg-black/60")}
                         onClick={() => setSelectedItem(null)}
                     />
 
                     {/* Modal Content */}
-                    <GlassCard className="relative w-full max-w-6xl max-h-full overflow-hidden flex flex-col md:flex-row shadow-2xl border-white/10 bg-[#0a0a0a]">
+                    <GlassCard className={cn("relative w-full max-w-6xl max-h-full overflow-hidden flex flex-col md:flex-row shadow-2xl", isDark ? "border-white/10 bg-[#0a0a0a]" : "border-gray-200 bg-white")}>
 
                         {/* Close Button */}
                         <button
                             onClick={() => setSelectedItem(null)}
-                            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-white/20 transition-colors"
+                            className={cn("absolute top-4 right-4 z-10 p-2 rounded-full transition-colors", isDark ? "bg-black/50 text-white hover:bg-white/20" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
                         >
                             <X className="w-5 h-5" />
                         </button>
 
                         {/* Media Preview (Left/Top) */}
-                        <div className="flex-1 bg-black/50 flex items-center justify-center min-h-[300px] md:min-h-0 relative group">
+                        <div className={cn("flex-1 flex items-center justify-center min-h-[300px] md:min-h-0 relative group", isDark ? "bg-black/50" : "bg-gray-100")}>
                             {selectedItem.type === 'image' && selectedItem.url && (
                                 <img src={selectedItem.url} className="max-w-full max-h-full object-contain" />
                             )}
@@ -441,7 +465,7 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                             )}
                             {selectedItem.type === 'text' && (
                                 <div className="p-8 max-w-2xl w-full h-full overflow-y-auto">
-                                    <div className="bg-white/5 rounded-xl p-6 border border-white/10 text-gray-200 whitespace-pre-wrap leading-relaxed font-mono text-sm">
+                                    <div className={cn("rounded-xl p-6 border whitespace-pre-wrap leading-relaxed font-mono text-sm", isDark ? "bg-white/5 border-white/10 text-gray-200" : "bg-white border-gray-200 text-gray-700")}>
                                         {selectedItem.content}
                                     </div>
                                 </div>
@@ -449,14 +473,14 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                         </div>
 
                         {/* Sidebar (Right/Bottom) */}
-                        <div className="w-full md:w-96 border-l border-white/10 bg-page/95 p-6 flex flex-col gap-6 overflow-y-auto">
+                        <div className={cn("w-full md:w-96 p-6 flex flex-col gap-6 overflow-y-auto border-l", isDark ? "border-white/10 bg-page/95" : "border-gray-200 bg-gray-50")}>
 
                             <div>
-                                <h3 className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wider">{t('modalPrompt')}</h3>
-                                <div className="bg-white/5 rounded-lg p-4 border border-white/10 group relative">
-                                    <p className="text-sm text-gray-200 leading-relaxed">{selectedItem.prompt}</p>
+                                <h3 className={cn("text-sm font-medium mb-2 uppercase tracking-wider", isDark ? "text-gray-400" : "text-gray-600")}>{t('modalPrompt')}</h3>
+                                <div className={cn("rounded-lg p-4 border group relative", isDark ? "bg-white/5 border-white/10" : "bg-white border-gray-200")}>
+                                    <p className={cn("text-sm leading-relaxed", isDark ? "text-gray-200" : "text-gray-700")}>{selectedItem.prompt}</p>
                                     <button
-                                        className="absolute top-2 right-2 p-1.5 rounded bg-black/50 text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className={cn("absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity", isDark ? "bg-black/50 text-gray-400 hover:text-white" : "bg-gray-100 text-gray-500 hover:text-gray-700")}
                                         onClick={() => handleCopyPrompt(selectedItem.prompt, selectedItem.id)}
                                     >
                                         {copiedId === selectedItem.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
@@ -465,24 +489,24 @@ const LibraryContent: React.FC<LibraryContentProps> = ({ generations, onDelete, 
                             </div>
 
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between py-3 border-b border-white/5">
-                                    <span className="text-gray-500 text-sm">{t('modalCreated')}</span>
-                                    <span className="text-white text-sm font-mono">{formatDate(new Date(selectedItem.createdAt))}</span>
+                                <div className={cn("flex items-center justify-between py-3 border-b", isDark ? "border-white/5" : "border-gray-200")}>
+                                    <span className={cn("text-sm", isDark ? "text-gray-500" : "text-gray-600")}>{t('modalCreated')}</span>
+                                    <span className={cn("text-sm font-mono", isDark ? "text-white" : "text-gray-900")}>{formatDate(new Date(selectedItem.createdAt))}</span>
                                 </div>
-                                <div className="flex items-center justify-between py-3 border-b border-white/5">
-                                    <span className="text-gray-500 text-sm">{t('modalType')}</span>
-                                    <span className="text-white text-sm capitalize flex items-center gap-2">
+                                <div className={cn("flex items-center justify-between py-3 border-b", isDark ? "border-white/5" : "border-gray-200")}>
+                                    <span className={cn("text-sm", isDark ? "text-gray-500" : "text-gray-600")}>{t('modalType')}</span>
+                                    <span className={cn("text-sm capitalize flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
                                         {getTypeIcon(selectedItem.type)} {selectedItem.type}
                                     </span>
                                 </div>
-                                <div className="flex items-center justify-between py-3 border-b border-white/5">
-                                    <span className="text-gray-500 text-sm">{t('modalDimensions')}</span>
-                                    <span className="text-white text-sm font-mono">
+                                <div className={cn("flex items-center justify-between py-3 border-b", isDark ? "border-white/5" : "border-gray-200")}>
+                                    <span className={cn("text-sm", isDark ? "text-gray-500" : "text-gray-600")}>{t('modalDimensions')}</span>
+                                    <span className={cn("text-sm font-mono", isDark ? "text-white" : "text-gray-900")}>
                                         {selectedItem.type === 'video' ? '1280x720' : selectedItem.type === 'image' ? '1024x1024' : 'N/A'}
                                     </span>
                                 </div>
-                                <div className="flex items-center justify-between py-3 border-b border-white/5">
-                                    <span className="text-gray-500 text-sm">{t('modalStatus')}</span>
+                                <div className={cn("flex items-center justify-between py-3 border-b", isDark ? "border-white/5" : "border-gray-200")}>
+                                    <span className={cn("text-sm", isDark ? "text-gray-500" : "text-gray-600")}>{t('modalStatus')}</span>
                                     <span className="text-green-400 text-sm flex items-center gap-1.5">
                                         <span className="w-1.5 h-1.5 rounded-full bg-green-400" /> {t('modalCompleted')}
                                     </span>

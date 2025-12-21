@@ -10,7 +10,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        page: '#070707',
+        page: 'var(--bg-page)',
+        card: 'var(--bg-card)',
+        'card-hover': 'var(--bg-card-hover)',
         primary: {
           DEFAULT: '#00C4CC',
           hover: '#00e0e9',
@@ -27,11 +29,13 @@ export default {
           pink: '#ec4899',
           green: '#00ff9d',
         },
-        panel: 'rgba(255, 255, 255, 0.03)',
-        'panel-hover': 'rgba(255, 255, 255, 0.05)',
-        main: '#e2e8f0',
-        muted: '#9ca3af',
-        dim: '#4b5563',
+        panel: 'var(--bg-card)',
+        'panel-hover': 'var(--bg-card-hover)',
+        main: 'var(--text-main)',
+        muted: 'var(--text-secondary)',
+        dim: 'var(--text-muted)',
+        border: 'var(--border-default)',
+        'border-hover': 'var(--border-hover)',
       },
       boxShadow: {
         glow: '0 0 30px -5px rgba(0, 196, 204, 0.15)',

@@ -10,6 +10,8 @@ import { ModelType, CREDIT_COSTS } from '@/types';
 import { Sparkles, User, Upload, Image as ImageIcon, Download, AlertCircle, RefreshCw, X, Video, Wand2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 import { deductCredits as deductCreditsFirebase, saveAvatarGeneration } from '@/lib/database';
 
 const STYLES = [
@@ -26,6 +28,8 @@ const STYLES = [
 export default function AvatarPage() {
     const { userData, refreshUserData } = useAuth();
     const t = useTranslations('avatar');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [mode, setMode] = useState<'image' | 'video'>('image');
 
     const handleGenerateComplete = async (url: string, prompt: string, type: 'image' | 'video', creditsUsed: number) => {
@@ -70,23 +74,33 @@ export default function AvatarPage() {
                 <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
                     {/* Header */}
                     <div>
-                        <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+                        <h1 className={cn("text-3xl font-bold mb-2 flex items-center gap-3", isDark ? "text-white" : "text-gray-900")}>
                             <User className="w-8 h-8 text-primary" /> {t('title')}
                         </h1>
-                        <p className="text-gray-400">{t('subtitle')}</p>
+                        <p className={cn(isDark ? "text-gray-400" : "text-gray-600")}>{t('subtitle')}</p>
                     </div>
 
                     {/* Mode Tabs */}
-                    <div className="flex bg-white/5 p-1 rounded-lg border border-white/10 max-w-md">
+                    <div className={cn("flex p-1 rounded-lg border max-w-md", isDark ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200")}>
                         <button
                             onClick={() => setMode('image')}
-                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${mode === 'image' ? 'bg-primary text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all",
+                                mode === 'image'
+                                    ? 'bg-primary text-black shadow-lg'
+                                    : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                            )}
                         >
                             <ImageIcon className="w-4 h-4" /> {t('modeImage') || 'Image Avatar'}
                         </button>
                         <button
                             onClick={() => setMode('video')}
-                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${mode === 'video' ? 'bg-primary text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all",
+                                mode === 'video'
+                                    ? 'bg-primary text-black shadow-lg'
+                                    : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                            )}
                         >
                             <Video className="w-4 h-4" /> {t('modeVideo') || 'Talking Avatar'}
                         </button>
@@ -112,6 +126,8 @@ interface AvatarGenProps {
 // Image Avatar Component
 const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCredits }) => {
     const t = useTranslations('avatar');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [selectedStyleId, setSelectedStyleId] = useState<string>(STYLES[1].id);
     const [customStyle, setCustomStyle] = useState('');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -226,11 +242,15 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
 
                     {/* 1. Upload Section */}
                     <GlassCard className="p-6">
-                        <h3 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">{t('uploadSectionTitle')}</h3>
+                        <h3 className={cn("text-sm font-semibold mb-4 uppercase tracking-wider", isDark ? "text-gray-300" : "text-gray-700")}>{t('uploadSectionTitle')}</h3>
 
                         <div
-                            className={`relative w-full aspect-[4/3] rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group ${uploadedImage ? 'border-primary/50 bg-black/40' : 'border-white/10 hover:border-white/30 hover:bg-white/5'
-                                }`}
+                            className={cn(
+                                "relative w-full aspect-[4/3] rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group",
+                                uploadedImage
+                                    ? (isDark ? 'border-primary/50 bg-black/40' : 'border-primary/50 bg-gray-100')
+                                    : (isDark ? 'border-white/10 hover:border-white/30 hover:bg-white/5' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50')
+                            )}
                             onClick={() => !uploadedImage && fileInputRef.current?.click()}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={handleDrop}
@@ -254,11 +274,11 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                                 </>
                             ) : (
                                 <div className="text-center p-6">
-                                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-gray-400 group-hover:text-white transition-colors">
+                                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors", isDark ? "bg-white/5 text-gray-400 group-hover:text-white" : "bg-gray-100 text-gray-500 group-hover:text-gray-700")}>
                                         <Upload className="w-6 h-6" />
                                     </div>
-                                    <p className="font-medium text-white mb-1">{t('clickOrDrag')}</p>
-                                    <p className="text-xs text-gray-500">{t('supportedFormats')}</p>
+                                    <p className={cn("font-medium mb-1", isDark ? "text-white" : "text-gray-900")}>{t('clickOrDrag')}</p>
+                                    <p className={cn("text-xs", isDark ? "text-gray-500" : "text-gray-600")}>{t('supportedFormats')}</p>
                                 </div>
                             )}
                         </div>
@@ -266,27 +286,31 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
 
                     {/* 2. Style Section */}
                     <GlassCard className="p-6">
-                        <h3 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">{t('styleSectionTitle')}</h3>
+                        <h3 className={cn("text-sm font-semibold mb-4 uppercase tracking-wider", isDark ? "text-gray-300" : "text-gray-700")}>{t('styleSectionTitle')}</h3>
 
                         <div className="grid grid-cols-4 gap-3 mb-4">
                             {STYLES.map((style) => (
                                 <button
                                     key={style.id}
                                     onClick={() => setSelectedStyleId(style.id)}
-                                    className={`px-2 py-3 rounded-lg text-xs font-medium transition-all ${selectedStyleId === style.id
-                                        ? 'bg-primary text-black shadow-[0_0_15px_-3px_rgba(0,196,204,0.4)]'
-                                        : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                                        }`}
+                                    className={cn(
+                                        "px-2 py-3 rounded-lg text-xs font-medium transition-all",
+                                        selectedStyleId === style.id
+                                            ? 'bg-primary text-black shadow-[0_0_15px_-3px_rgba(0,196,204,0.4)]'
+                                            : isDark ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                                    )}
                                 >
                                     {t(style.nameKey)}
                                 </button>
                             ))}
                             <button
                                 onClick={() => setSelectedStyleId('custom')}
-                                className={`px-2 py-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${selectedStyleId === 'custom'
-                                    ? 'bg-primary text-black shadow-glow'
-                                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                                    }`}
+                                className={cn(
+                                    "px-2 py-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1",
+                                    selectedStyleId === 'custom'
+                                        ? 'bg-primary text-black shadow-glow'
+                                        : isDark ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                                )}
                             >
                                 <Sparkles className="w-3 h-3" /> {t('styleCustom')}
                             </button>
@@ -298,7 +322,12 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                                     <button
                                         onClick={handleEnhanceStyle}
                                         disabled={!customStyle.trim() || isEnhancing}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-500/20 to-primary/20 border border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+                                            isDark
+                                                ? "bg-gradient-to-r from-purple-500/20 to-primary/20 border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200"
+                                                : "bg-gradient-to-r from-purple-100 to-primary/10 border-purple-300 text-purple-700 hover:from-purple-200 hover:to-primary/20 hover:text-purple-800"
+                                        )}
                                         title={t('enhancePromptTooltip') || 'Enhance with AI'}
                                     >
                                         <Wand2 className={`w-3.5 h-3.5 ${isEnhancing ? 'animate-spin' : ''}`} />
@@ -316,7 +345,12 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                         )}
 
                         {error && (
-                            <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-2">
+                            <div className={cn(
+                                "mt-4 p-3 rounded-lg text-sm flex items-start gap-2 border",
+                                isDark
+                                    ? "bg-red-500/10 border-red-500/20 text-red-400"
+                                    : "bg-red-50 border-red-200 text-red-700"
+                            )}>
                                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                 {error}
                             </div>
@@ -339,19 +373,19 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                 {/* RIGHT: Result Preview */}
                 <div className="h-full">
                     <GlassCard className="h-full min-h-[500px] flex flex-col p-0 overflow-hidden relative border-primary/20">
-                        <div className="absolute top-4 left-4 z-10 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-medium text-white border border-white/10">
+                        <div className={cn("absolute top-4 left-4 z-10 px-3 py-1 backdrop-blur-md rounded-full text-xs font-medium border", isDark ? "bg-black/60 text-white border-white/10" : "bg-white/90 text-gray-700 border-gray-200")}>
                             {resultUrl ? t('previewGenerated') : t('previewArea')}
                         </div>
 
                         {isGenerating ? (
-                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm p-8 text-center">
+                            <div className={cn("absolute inset-0 z-20 flex flex-col items-center justify-center backdrop-blur-sm p-8 text-center", isDark ? "bg-black/80" : "bg-white/80")}>
                                 <div className="relative w-20 h-20 mb-6">
                                     <div className="absolute inset-0 border-t-2 border-primary rounded-full animate-spin" />
                                     <div className="absolute inset-3 border-r-2 border-purple-500 rounded-full animate-spin animation-delay-500" />
                                     <Sparkles className="absolute inset-0 m-auto text-primary w-6 h-6 animate-pulse" />
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2">{t('loadingTitle')}</h3>
-                                <p className="text-gray-400 text-sm max-w-xs">{t('loadingDescription')}</p>
+                                <h3 className={cn("text-xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('loadingTitle')}</h3>
+                                <p className={cn("text-sm max-w-xs", isDark ? "text-gray-400" : "text-gray-600")}>{t('loadingDescription')}</p>
                             </div>
                         ) : resultUrl ? (
                             <div className="relative w-full h-full group bg-black">
@@ -374,12 +408,12 @@ const AvatarImageGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-600 p-8 bg-black/20">
-                                <div className="w-24 h-24 rounded-full bg-white/5 border border-white/5 flex items-center justify-center mb-6">
+                            <div className={cn("flex-1 flex flex-col items-center justify-center p-8", isDark ? "text-gray-600 bg-black/20" : "text-gray-500 bg-gray-50")}>
+                                <div className={cn("w-24 h-24 rounded-full flex items-center justify-center mb-6 border", isDark ? "bg-white/5 border-white/5" : "bg-gray-100 border-gray-200")}>
                                     <ImageIcon className="w-10 h-10 opacity-30" />
                                 </div>
-                                <p className="text-lg font-medium text-gray-500">{t('emptyTitle')}</p>
-                                <p className="text-sm text-gray-600 mt-2 max-w-xs text-center">{t('emptyDescription')}</p>
+                                <p className={cn("text-lg font-medium", isDark ? "text-gray-500" : "text-gray-600")}>{t('emptyTitle')}</p>
+                                <p className={cn("text-sm mt-2 max-w-xs text-center", isDark ? "text-gray-600" : "text-gray-500")}>{t('emptyDescription')}</p>
                             </div>
                         )}
                     </GlassCard>
@@ -401,6 +435,8 @@ const ANIMATION_PRESETS = [
 // Video Avatar Component (Image-to-Video Animation)
 const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCredits }) => {
     const t = useTranslations('avatar');
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [selectedPreset, setSelectedPreset] = useState<string>('natural');
     const [customPrompt, setCustomPrompt] = useState('');
@@ -525,10 +561,15 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
             <div className="space-y-6">
                 {/* Upload Section */}
                 <GlassCard className="p-6">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">{t('uploadSectionTitle')}</h3>
+                    <h3 className={cn("text-sm font-semibold mb-4 uppercase tracking-wider", isDark ? "text-gray-300" : "text-gray-700")}>{t('uploadSectionTitle')}</h3>
 
                     <div
-                        className={`relative w-full aspect-[4/3] rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group ${uploadedImage ? 'border-primary/50 bg-black/40' : 'border-white/10 hover:border-white/30 hover:bg-white/5'}`}
+                        className={cn(
+                            "relative w-full aspect-[4/3] rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden group",
+                            uploadedImage
+                                ? (isDark ? 'border-primary/50 bg-black/40' : 'border-primary/50 bg-gray-100')
+                                : (isDark ? 'border-white/10 hover:border-white/30 hover:bg-white/5' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50')
+                        )}
                         onClick={() => !uploadedImage && fileInputRef.current?.click()}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={handleDrop}
@@ -552,11 +593,11 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                             </>
                         ) : (
                             <div className="text-center p-6">
-                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-gray-400 group-hover:text-white transition-colors">
+                                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors", isDark ? "bg-white/5 text-gray-400 group-hover:text-white" : "bg-gray-100 text-gray-500 group-hover:text-gray-700")}>
                                     <Upload className="w-6 h-6" />
                                 </div>
-                                <p className="font-medium text-white mb-1">{t('clickOrDrag')}</p>
-                                <p className="text-xs text-gray-500">{t('videoPortraitTip') || 'Upload a clear portrait photo'}</p>
+                                <p className={cn("font-medium mb-1", isDark ? "text-white" : "text-gray-900")}>{t('clickOrDrag')}</p>
+                                <p className={cn("text-xs", isDark ? "text-gray-500" : "text-gray-600")}>{t('videoPortraitTip') || 'Upload a clear portrait photo'}</p>
                             </div>
                         )}
                     </div>
@@ -564,7 +605,7 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
 
                 {/* Animation Style Section */}
                 <GlassCard className="p-6">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <h3 className={cn("text-sm font-semibold mb-4 uppercase tracking-wider flex items-center gap-2", isDark ? "text-gray-300" : "text-gray-700")}>
                         <Video className="w-4 h-4" /> {t('animationSectionTitle') || 'Animation Style'}
                     </h3>
 
@@ -574,11 +615,12 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                             <button
                                 key={preset.id}
                                 onClick={() => setSelectedPreset(preset.id)}
-                                className={`px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                                className={cn(
+                                    "px-3 py-2.5 rounded-lg text-xs font-medium transition-all",
                                     selectedPreset === preset.id
                                         ? 'bg-primary text-black shadow-[0_0_10px_-3px_rgba(0,196,204,0.4)]'
-                                        : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                                }`}
+                                        : isDark ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                                )}
                             >
                                 {preset.id === 'custom' ? (
                                     <span className="flex items-center justify-center gap-1">
@@ -598,7 +640,12 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                                 <button
                                     onClick={handleEnhancePrompt}
                                     disabled={!customPrompt.trim() || isEnhancing}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-500/20 to-primary/20 border border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+                                        isDark
+                                            ? "bg-gradient-to-r from-purple-500/20 to-primary/20 border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-primary/30 hover:text-purple-200"
+                                            : "bg-gradient-to-r from-purple-100 to-primary/10 border-purple-300 text-purple-700 hover:from-purple-200 hover:to-primary/20 hover:text-purple-800"
+                                    )}
                                 >
                                     <Wand2 className={`w-3.5 h-3.5 ${isEnhancing ? 'animate-spin' : ''}`} />
                                     {isEnhancing ? (t('enhancing') || 'Enhancing...') : (t('enhancePrompt') || 'AI Enhance')}
@@ -614,12 +661,17 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                         </div>
                     )}
 
-                    <p className="text-xs text-gray-500 mt-3">
+                    <p className={cn("text-xs mt-3", isDark ? "text-gray-500" : "text-gray-600")}>
                         {t('animationTip') || 'The AI will animate your portrait based on the selected style.'}
                     </p>
 
                     {error && (
-                        <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-2">
+                        <div className={cn(
+                            "mt-4 p-3 rounded-lg text-sm flex items-start gap-2 border",
+                            isDark
+                                ? "bg-red-500/10 border-red-500/20 text-red-400"
+                                : "bg-red-50 border-red-200 text-red-700"
+                        )}>
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                             {error}
                         </div>
@@ -641,20 +693,20 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
             {/* RIGHT: Result Preview */}
             <div className="h-full">
                 <GlassCard className="h-full min-h-[500px] flex flex-col p-0 overflow-hidden relative border-primary/20">
-                    <div className="absolute top-4 left-4 z-10 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-medium text-white border border-white/10 flex items-center gap-2">
+                    <div className={cn("absolute top-4 left-4 z-10 px-3 py-1 backdrop-blur-md rounded-full text-xs font-medium border flex items-center gap-2", isDark ? "bg-black/60 text-white border-white/10" : "bg-white/90 text-gray-700 border-gray-200")}>
                         <Video className="w-3 h-3" />
                         {resultUrl ? (t('previewGeneratedVideo') || 'Generated Video') : (t('previewAreaVideo') || 'Video Preview')}
                     </div>
 
                     {isGenerating ? (
-                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm p-8 text-center">
+                        <div className={cn("absolute inset-0 z-20 flex flex-col items-center justify-center backdrop-blur-sm p-8 text-center", isDark ? "bg-black/80" : "bg-white/80")}>
                             <div className="relative w-20 h-20 mb-6">
                                 <div className="absolute inset-0 border-t-2 border-primary rounded-full animate-spin" />
                                 <div className="absolute inset-3 border-r-2 border-purple-500 rounded-full animate-spin animation-delay-500" />
                                 <Video className="absolute inset-0 m-auto text-primary w-6 h-6 animate-pulse" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">{t('loadingTitleVideo') || 'Creating Your Avatar Video'}</h3>
-                            <p className="text-gray-400 text-sm max-w-xs mb-2">{t('loadingDescriptionVideo') || 'This may take 2-3 minutes...'}</p>
+                            <h3 className={cn("text-xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>{t('loadingTitleVideo') || 'Creating Your Avatar Video'}</h3>
+                            <p className={cn("text-sm max-w-xs mb-2", isDark ? "text-gray-400" : "text-gray-600")}>{t('loadingDescriptionVideo') || 'This may take 2-3 minutes...'}</p>
                             {generationStep && (
                                 <p className="text-primary text-xs font-medium">{generationStep}</p>
                             )}
@@ -682,12 +734,12 @@ const AvatarVideoGen: React.FC<AvatarGenProps> = ({ onGenerateComplete, deductCr
                             </div>
                         </div>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-600 p-8 bg-black/20">
-                            <div className="w-24 h-24 rounded-full bg-white/5 border border-white/5 flex items-center justify-center mb-6">
+                        <div className={cn("flex-1 flex flex-col items-center justify-center p-8", isDark ? "text-gray-600 bg-black/20" : "text-gray-500 bg-gray-50")}>
+                            <div className={cn("w-24 h-24 rounded-full flex items-center justify-center mb-6 border", isDark ? "bg-white/5 border-white/5" : "bg-gray-100 border-gray-200")}>
                                 <Video className="w-10 h-10 opacity-30" />
                             </div>
-                            <p className="text-lg font-medium text-gray-500">{t('emptyTitleVideo') || 'Video Preview'}</p>
-                            <p className="text-sm text-gray-600 mt-2 max-w-xs text-center">{t('emptyDescriptionVideo') || 'Upload a portrait and select an animation style to generate a video'}</p>
+                            <p className={cn("text-lg font-medium", isDark ? "text-gray-500" : "text-gray-600")}>{t('emptyTitleVideo') || 'Video Preview'}</p>
+                            <p className={cn("text-sm mt-2 max-w-xs text-center", isDark ? "text-gray-600" : "text-gray-500")}>{t('emptyDescriptionVideo') || 'Upload a portrait and select an animation style to generate a video'}</p>
                         </div>
                     )}
                 </GlassCard>

@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { IconTrendingUp, IconTrendingDown, IconMinus } from '@tabler/icons-react';
 import { ComponentType } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 
 interface StatsCardProps {
     label: string;
@@ -30,6 +32,9 @@ export function StatsCard({
     isLoading = false,
     index = 0,
 }: StatsCardProps) {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
+
     // Calculate trend
     const trend = previousValue !== undefined ? value - previousValue : 0;
     const trendPercentage = previousValue && previousValue > 0
@@ -72,7 +77,12 @@ export function StatsCard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + index * 0.1 }}
-            className="group relative bg-[#0d1117] border border-white/10 rounded-xl sm:rounded-2xl p-3 sm:p-4 hover:border-white/20 transition-all duration-300 overflow-hidden"
+            className={cn(
+                "group relative rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-300 overflow-hidden border",
+                isDark
+                    ? "bg-[#0d1117] border-white/10 hover:border-white/20"
+                    : "bg-white border-gray-200 hover:border-gray-300 shadow-sm"
+            )}
             role="region"
             aria-label={`${label} statistics`}
         >
@@ -82,7 +92,7 @@ export function StatsCard({
             <div className="relative">
                 {/* Header with icon */}
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
-                    <p className="text-gray-400 text-xs sm:text-sm font-medium truncate pr-2">{label}</p>
+                    <p className={cn("text-xs sm:text-sm font-medium truncate pr-2", isDark ? "text-gray-400" : "text-gray-600")}>{label}</p>
                     <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${bgColor} flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
                         <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${iconColor}`} />
                     </div>
@@ -92,10 +102,10 @@ export function StatsCard({
                 <div className="flex items-end justify-between gap-2">
                     <div className="min-w-0">
                         {isLoading ? (
-                            <div className="h-8 sm:h-10 w-12 sm:w-16 rounded bg-white/10 animate-pulse" />
+                            <div className={cn("h-8 sm:h-10 w-12 sm:w-16 rounded animate-pulse", isDark ? "bg-white/10" : "bg-gray-200")} />
                         ) : (
                             <motion.p
-                                className="text-2xl sm:text-3xl font-bold text-white"
+                                className={cn("text-2xl sm:text-3xl font-bold", isDark ? "text-white" : "text-gray-900")}
                                 initial={{ scale: 0.5, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ delay: 0.2 + index * 0.1, type: 'spring' }}

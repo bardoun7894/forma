@@ -5,6 +5,7 @@ import { Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-r
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface VideoGenerationProgressProps {
     status: 'starting' | 'processing' | 'completed' | 'failed';
@@ -33,6 +34,8 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
     videoUrl,
     className,
 }) => {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [currentStep, setCurrentStep] = useState(0);
     const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -64,14 +67,14 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
 
     if (status === 'completed' && videoUrl) {
         return (
-            <GlassCard className={cn('p-6 border-green-500/30', className)}>
+            <GlassCard className={cn('p-6', isDark ? 'border-green-500/30' : 'border-green-300', className)}>
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", isDark ? "bg-green-500/20" : "bg-green-100")}>
                         <CheckCircle2 className="w-5 h-5 text-green-500" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-green-400">Video Ready!</h3>
-                        <p className="text-sm text-gray-400">Generated in {formatTime(elapsedTime)}</p>
+                        <h3 className={cn("font-semibold", isDark ? "text-green-400" : "text-green-700")}>Video Ready!</h3>
+                        <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-600")}>Generated in {formatTime(elapsedTime)}</p>
                     </div>
                 </div>
                 <div className="aspect-video rounded-lg overflow-hidden bg-black">
@@ -83,14 +86,14 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
 
     if (status === 'failed') {
         return (
-            <GlassCard className={cn('p-6 border-red-500/30', className)}>
+            <GlassCard className={cn('p-6', isDark ? 'border-red-500/30' : 'border-red-300', className)}>
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", isDark ? "bg-red-500/20" : "bg-red-100")}>
                         <XCircle className="w-5 h-5 text-red-500" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-red-400">Generation Failed</h3>
-                        <p className="text-sm text-gray-400">{error || 'An unexpected error occurred'}</p>
+                        <h3 className={cn("font-semibold", isDark ? "text-red-400" : "text-red-700")}>Generation Failed</h3>
+                        <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-600")}>{error || 'An unexpected error occurred'}</p>
                     </div>
                 </div>
             </GlassCard>
@@ -108,8 +111,8 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
                         <Video className="absolute inset-0 m-auto w-5 h-5 text-primary animate-pulse" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white">Generating Video</h3>
-                        <p className="text-sm text-gray-400">
+                        <h3 className={cn("font-semibold", isDark ? "text-white" : "text-gray-900")}>Generating Video</h3>
+                        <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-600")}>
                             {status === 'starting' ? 'Starting...' : GENERATION_STEPS[currentStep]?.label || 'Processing...'}
                         </p>
                     </div>
@@ -120,18 +123,18 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
                         {formatTime(elapsedTime)}
                     </div>
                     {estimatedTime && (
-                        <p className="text-xs text-gray-500">~{formatTime(estimatedTime)} remaining</p>
+                        <p className={cn("text-xs", isDark ? "text-gray-500" : "text-gray-600")}>~{formatTime(estimatedTime)} remaining</p>
                     )}
                 </div>
             </div>
 
             {/* Progress Bar */}
             <div className="mb-6">
-                <div className="flex justify-between text-xs text-gray-400 mb-2">
+                <div className={cn("flex justify-between text-xs mb-2", isDark ? "text-gray-400" : "text-gray-600")}>
                     <span>Progress</span>
                     <span>{Math.round(progress)}%</span>
                 </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div className={cn("h-2 rounded-full overflow-hidden", isDark ? "bg-white/10" : "bg-gray-200")}>
                     <div
                         className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all duration-500 animate-progress-pulse"
                         style={{ width: `${Math.max(progress, 5)}%` }}
@@ -146,14 +149,14 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
                         key={step.key}
                         className={cn(
                             'flex items-center gap-3 text-sm transition-all duration-300',
-                            index < currentStep ? 'text-green-400' :
-                                index === currentStep ? 'text-primary' : 'text-gray-600'
+                            index < currentStep ? (isDark ? 'text-green-400' : 'text-green-600') :
+                                index === currentStep ? 'text-primary' : (isDark ? 'text-gray-600' : 'text-gray-400')
                         )}
                     >
                         <div className={cn(
                             'w-5 h-5 rounded-full flex items-center justify-center transition-all',
-                            index < currentStep ? 'bg-green-500/20' :
-                                index === currentStep ? 'bg-primary/20' : 'bg-white/5'
+                            index < currentStep ? (isDark ? 'bg-green-500/20' : 'bg-green-100') :
+                                index === currentStep ? (isDark ? 'bg-primary/20' : 'bg-primary/10') : (isDark ? 'bg-white/5' : 'bg-gray-100')
                         )}>
                             {index < currentStep ? (
                                 <CheckCircle2 className="w-3 h-3" />
@@ -169,21 +172,21 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
             </div>
 
             {/* Video Preview Skeleton */}
-            <div className="aspect-video rounded-lg overflow-hidden bg-black/50 relative">
+            <div className={cn("aspect-video rounded-lg overflow-hidden relative", isDark ? "bg-black/50" : "bg-gray-100")}>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <Skeleton variant="rectangular" className="w-full h-full absolute inset-0" animation="wave" />
                     <div className="relative z-10 text-center">
                         <Sparkles className="w-8 h-8 text-primary/50 mx-auto mb-2 animate-pulse" />
-                        <p className="text-sm text-gray-500">Your video is being created...</p>
+                        <p className={cn("text-sm", isDark ? "text-gray-500" : "text-gray-600")}>Your video is being created...</p>
                     </div>
                 </div>
             </div>
 
             {/* Prompt Preview */}
             {prompt && (
-                <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
-                    <p className="text-xs text-gray-500 mb-1">Prompt</p>
-                    <p className="text-sm text-gray-300 line-clamp-2">{prompt}</p>
+                <div className={cn("mt-4 p-3 rounded-lg border", isDark ? "bg-white/5 border-white/10" : "bg-gray-50 border-gray-200")}>
+                    <p className={cn("text-xs mb-1", isDark ? "text-gray-500" : "text-gray-500")}>Prompt</p>
+                    <p className={cn("text-sm line-clamp-2", isDark ? "text-gray-300" : "text-gray-700")}>{prompt}</p>
                 </div>
             )}
         </GlassCard>
@@ -191,15 +194,20 @@ export const VideoGenerationProgress: React.FC<VideoGenerationProgressProps> = (
 };
 
 // Simple inline loading state for when you just need a basic indicator
-export const VideoGeneratingIndicator: React.FC<{ className?: string }> = ({ className }) => (
-    <div className={cn('flex items-center gap-3 p-4 rounded-xl bg-primary/10 border border-primary/20', className)}>
-        <div className="relative w-8 h-8">
-            <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
-            <Video className="absolute inset-0 m-auto w-4 h-4 text-primary" />
+export const VideoGeneratingIndicator: React.FC<{ className?: string }> = ({ className }) => {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
+
+    return (
+        <div className={cn('flex items-center gap-3 p-4 rounded-xl bg-primary/10 border border-primary/20', className)}>
+            <div className="relative w-8 h-8">
+                <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
+                <Video className="absolute inset-0 m-auto w-4 h-4 text-primary" />
+            </div>
+            <div>
+                <p className={cn("text-sm font-medium", isDark ? "text-white" : "text-gray-900")}>Video generating...</p>
+                <p className={cn("text-xs", isDark ? "text-gray-400" : "text-gray-600")}>This may take 2-5 minutes</p>
+            </div>
         </div>
-        <div>
-            <p className="text-sm font-medium text-white">Video generating...</p>
-            <p className="text-xs text-gray-400">This may take 2-5 minutes</p>
-        </div>
-    </div>
-);
+    );
+};

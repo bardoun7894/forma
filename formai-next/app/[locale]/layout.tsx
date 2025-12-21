@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { Inter, Tajawal } from 'next/font/google';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Toaster } from 'react-hot-toast';
 import '../globals.css';
 
@@ -35,14 +36,16 @@ export default async function LocaleLayout({
     const direction = locale === 'ar' ? 'rtl' : 'ltr';
 
     return (
-        <html lang={locale} dir={direction} className="dark">
-            <body className={`${inter.variable} ${tajawal.variable} ${locale === 'ar' ? 'font-arabic' : 'font-sans'} antialiased bg-page text-main`}>
-                <AuthProvider>
-                    <NextIntlClientProvider messages={messages}>
-                        {children}
-                        <Toaster position="top-center" />
-                    </NextIntlClientProvider>
-                </AuthProvider>
+        <html lang={locale} dir={direction} className="dark" suppressHydrationWarning>
+            <body className={`${inter.variable} ${tajawal.variable} ${locale === 'ar' ? 'font-arabic' : 'font-sans'} antialiased bg-page text-main transition-colors duration-300`}>
+                <ThemeProvider>
+                    <AuthProvider>
+                        <NextIntlClientProvider messages={messages}>
+                            {children}
+                            <Toaster position="top-center" />
+                        </NextIntlClientProvider>
+                    </AuthProvider>
+                </ThemeProvider>
             </body>
         </html>
     );

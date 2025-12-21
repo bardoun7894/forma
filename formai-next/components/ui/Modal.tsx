@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 interface ModalProps {
     isOpen: boolean;
@@ -20,6 +22,9 @@ export function Modal({
     className = "",
     showCloseButton = true
 }: ModalProps) {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
+
     // Prevent scrolling when modal is open
     useEffect(() => {
         if (isOpen) {
@@ -70,13 +75,22 @@ export function Modal({
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className={`relative pointer-events-auto bg-black border border-white/10 rounded-2xl shadow-2xl overflow-hidden w-full max-w-4xl mx-auto ${className}`}
+                            className={cn(
+                                "relative pointer-events-auto border rounded-2xl shadow-2xl overflow-hidden w-full max-w-4xl mx-auto",
+                                isDark ? "bg-black border-white/10" : "bg-white border-gray-200",
+                                className
+                            )}
                         >
                             {/* Close Button */}
                             {showCloseButton && (
                                 <button
                                     onClick={onClose}
-                                    className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 hover:bg-white/10 text-white/70 hover:text-white transition-colors border border-white/5"
+                                    className={cn(
+                                        "absolute top-4 right-4 z-10 p-2 rounded-full transition-colors border",
+                                        isDark
+                                            ? "bg-black/50 hover:bg-white/10 text-white/70 hover:text-white border-white/5"
+                                            : "bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 border-gray-200"
+                                    )}
                                     aria-label="Close modal"
                                 >
                                     <X className="w-5 h-5" />

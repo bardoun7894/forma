@@ -11,6 +11,8 @@ import {
     IconX,
     IconCheck,
 } from '@tabler/icons-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 
 interface OnboardingStep {
     id: string;
@@ -61,6 +63,8 @@ export function OnboardingOverlay({ isNewUser, onComplete, locale }: OnboardingO
     const [isOpen, setIsOpen] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
 
     useEffect(() => {
         // Check localStorage to see if user has completed onboarding
@@ -109,7 +113,7 @@ export function OnboardingOverlay({ isNewUser, onComplete, locale }: OnboardingO
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+                        className={cn("fixed inset-0 backdrop-blur-sm z-50", isDark ? "bg-black/80" : "bg-black/60")}
                     />
 
                     {/* Modal */}
@@ -119,11 +123,17 @@ export function OnboardingOverlay({ isNewUser, onComplete, locale }: OnboardingO
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         className="fixed inset-0 flex items-center justify-center z-50 p-4"
                     >
-                        <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
+                        <div className={cn(
+                            "backdrop-blur-xl rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border",
+                            isDark ? "bg-gray-900/95 border-white/10" : "bg-white border-gray-200"
+                        )}>
                             {/* Close button */}
                             <button
                                 onClick={handleSkip}
-                                className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                                className={cn(
+                                    "absolute top-4 right-4 p-2 rounded-full transition-colors",
+                                    isDark ? "hover:bg-white/10 text-gray-400 hover:text-white" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                                )}
                             >
                                 <IconX className="w-5 h-5" />
                             </button>
@@ -133,13 +143,14 @@ export function OnboardingOverlay({ isNewUser, onComplete, locale }: OnboardingO
                                 {ONBOARDING_STEPS.map((_, index) => (
                                     <motion.div
                                         key={index}
-                                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                                        className={cn(
+                                            "h-1.5 rounded-full transition-all duration-300",
                                             index === currentStep
                                                 ? 'w-8 bg-primary'
                                                 : index < currentStep
                                                 ? 'w-4 bg-primary/50'
-                                                : 'w-4 bg-white/20'
-                                        }`}
+                                                : isDark ? 'w-4 bg-white/20' : 'w-4 bg-gray-200'
+                                        )}
                                     />
                                 ))}
                             </div>
@@ -160,12 +171,12 @@ export function OnboardingOverlay({ isNewUser, onComplete, locale }: OnboardingO
                                         </div>
 
                                         {/* Title */}
-                                        <h2 className="text-2xl font-bold text-white mb-3">
+                                        <h2 className={cn("text-2xl font-bold mb-3", isDark ? "text-white" : "text-gray-900")}>
                                             {currentStepData.title}
                                         </h2>
 
                                         {/* Description */}
-                                        <p className="text-gray-400 leading-relaxed">
+                                        <p className={cn("leading-relaxed", isDark ? "text-gray-400" : "text-gray-600")}>
                                             {currentStepData.description}
                                         </p>
                                     </motion.div>
@@ -173,21 +184,27 @@ export function OnboardingOverlay({ isNewUser, onComplete, locale }: OnboardingO
                             </div>
 
                             {/* Actions */}
-                            <div className="flex items-center justify-between p-6 border-t border-white/10 bg-white/5">
+                            <div className={cn(
+                                "flex items-center justify-between p-6 border-t",
+                                isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-gray-50"
+                            )}>
                                 <button
                                     onClick={handleSkip}
-                                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                                    className={cn("text-sm transition-colors", isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-700")}
                                 >
                                     Skip tour
                                 </button>
 
                                 <button
                                     onClick={handleNext}
-                                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                                    className={cn(
+                                        "flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all",
                                         isLastStep
                                             ? 'bg-gradient-to-r from-primary to-cyan-400 text-black hover:opacity-90'
-                                            : 'bg-white/10 text-white hover:bg-white/20'
-                                    }`}
+                                            : isDark
+                                                ? 'bg-white/10 text-white hover:bg-white/20'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    )}
                                 >
                                     {isLastStep ? (
                                         <>

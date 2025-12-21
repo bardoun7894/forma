@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconBell, IconCheck, IconVideo, IconPhoto, IconUserCircle, IconX, IconSparkles, IconAlertTriangle } from '@tabler/icons-react';
 import { useTranslations } from 'next-intl';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 
 export interface Notification {
     id: string;
@@ -32,6 +34,8 @@ export function NotificationBell({
     const t = useTranslations('header');
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>(externalNotifications);
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
 
     // Sync with external notifications
     useEffect(() => {
@@ -97,10 +101,15 @@ export function NotificationBell({
             {/* Bell button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all"
+                className={cn(
+                    "relative p-2 rounded-xl border transition-all",
+                    isDark
+                        ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                        : "bg-gray-100 hover:bg-gray-200 border-gray-200 hover:border-gray-300"
+                )}
                 aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
             >
-                <IconBell className={`w-5 h-5 ${hasNew ? 'text-primary animate-bounce' : 'text-gray-400'}`} />
+                <IconBell className={cn("w-5 h-5", hasNew ? 'text-primary animate-bounce' : isDark ? 'text-gray-400' : 'text-gray-500')} />
 
                 {/* Badge */}
                 <AnimatePresence>
@@ -132,11 +141,16 @@ export function NotificationBell({
                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            className="absolute end-0 top-full mt-2 w-80 bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-[201] ring-1 ring-white/5"
+                            className={cn(
+                                "absolute end-0 top-full mt-2 w-80 rounded-2xl shadow-2xl overflow-hidden z-[201] ring-1 border",
+                                isDark
+                                    ? "bg-[#0d1117] border-white/10 shadow-black/50 ring-white/5"
+                                    : "bg-white border-gray-200 shadow-gray-200/50 ring-gray-200"
+                            )}
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between p-4 border-b border-white/10">
-                                <h3 className="text-white font-semibold">{t('notifications')}</h3>
+                            <div className={cn("flex items-center justify-between p-4 border-b", isDark ? "border-white/10" : "border-gray-200")}>
+                                <h3 className={cn("font-semibold", isDark ? "text-white" : "text-gray-900")}>{t('notifications')}</h3>
                                 {unreadCount > 0 && (
                                     <button
                                         onClick={handleMarkAllAsRead}
@@ -151,18 +165,22 @@ export function NotificationBell({
                             <div className="max-h-80 overflow-y-auto">
                                 {notifications.length === 0 ? (
                                     <div className="p-8 text-center">
-                                        <IconBell className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-                                        <p className="text-gray-400 text-sm">{t('noNotifications')}</p>
-                                        <p className="text-gray-500 text-xs mt-1">{t('notificationsHint')}</p>
+                                        <IconBell className={cn("w-10 h-10 mx-auto mb-3", isDark ? "text-gray-600" : "text-gray-400")} />
+                                        <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-500")}>{t('noNotifications')}</p>
+                                        <p className={cn("text-xs mt-1", isDark ? "text-gray-500" : "text-gray-400")}>{t('notificationsHint')}</p>
                                     </div>
                                 ) : (
-                                    <div className="divide-y divide-white/5">
+                                    <div className={cn("divide-y", isDark ? "divide-white/5" : "divide-gray-100")}>
                                         {notifications.map(notification => (
                                             <motion.div
                                                 key={notification.id}
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
-                                                className={`p-4 hover:bg-white/5 transition-colors ${!notification.read ? 'bg-primary/5' : ''}`}
+                                                className={cn(
+                                                    "p-4 transition-colors",
+                                                    isDark ? "hover:bg-white/5" : "hover:bg-gray-50",
+                                                    !notification.read && (isDark ? 'bg-primary/5' : 'bg-primary/5')
+                                                )}
                                             >
                                                 <div className="flex gap-3">
                                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -179,18 +197,23 @@ export function NotificationBell({
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-start justify-between gap-2">
-                                                            <p className={`text-sm font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                                                            <p className={cn(
+                                                                "text-sm font-medium",
+                                                                !notification.read
+                                                                    ? (isDark ? 'text-white' : 'text-gray-900')
+                                                                    : (isDark ? 'text-gray-300' : 'text-gray-600')
+                                                            )}>
                                                                 {notification.title}
                                                             </p>
                                                             <button
                                                                 onClick={() => handleClearNotification(notification.id)}
-                                                                className="text-gray-500 hover:text-gray-300 transition-colors"
+                                                                className={cn("transition-colors", isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600")}
                                                             >
                                                                 <IconX className="w-4 h-4" />
                                                             </button>
                                                         </div>
-                                                        <p className="text-xs text-gray-400 mt-0.5">{notification.message}</p>
-                                                        <p className="text-xs text-gray-500 mt-1">{formatTime(notification.timestamp)}</p>
+                                                        <p className={cn("text-xs mt-0.5", isDark ? "text-gray-400" : "text-gray-500")}>{notification.message}</p>
+                                                        <p className={cn("text-xs mt-1", isDark ? "text-gray-500" : "text-gray-400")}>{formatTime(notification.timestamp)}</p>
                                                     </div>
                                                 </div>
                                                 {!notification.read && (

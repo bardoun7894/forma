@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslations } from 'next-intl';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/Button';
@@ -9,6 +10,7 @@ import { Wallet, Plus, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { cn } from '@/lib/utils';
 
 interface CreditTransaction {
     id: string;
@@ -22,6 +24,8 @@ interface CreditTransaction {
 export default function CreditsPage() {
     const t = useTranslations('credits');
     const { userData } = useAuth();
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const router = useRouter();
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,18 +57,18 @@ export default function CreditsPage() {
     }, [userData]);
 
     if (!userData) {
-        return <div className="p-8 text-white">{t('loginRequired')}</div>;
+        return <div className={cn("p-8", isDark ? "text-white" : "text-gray-900")}>{t('loginRequired')}</div>;
     }
 
     return (
-        <div className="min-h-screen bg-dark p-4 md:p-8">
+        <div className={cn("min-h-screen p-4 md:p-8", isDark ? "bg-dark" : "bg-gray-50")}>
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                    <h1 className={cn("text-3xl md:text-4xl font-bold mb-2", isDark ? "text-white" : "text-gray-900")}>
                         {t('title')}
                     </h1>
-                    <p className="text-muted">{t('subtitle')}</p>
+                    <p className={cn(isDark ? "text-muted" : "text-gray-500")}>{t('subtitle')}</p>
                 </div>
 
                 {/* Balance Card */}
@@ -75,8 +79,8 @@ export default function CreditsPage() {
                                 <Wallet className="w-8 h-8 text-primary" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted mb-1">{t('currentBalance')}</p>
-                                <p className="text-4xl font-bold text-white">
+                                <p className={cn("text-sm mb-1", isDark ? "text-muted" : "text-gray-500")}>{t('currentBalance')}</p>
+                                <p className={cn("text-4xl font-bold", isDark ? "text-white" : "text-gray-900")}>
                                     {userData.credits || 0}
                                     <span className="text-lg text-primary ml-2">{t('credits')}</span>
                                 </p>
@@ -96,7 +100,7 @@ export default function CreditsPage() {
 
                 {/* Transaction History */}
                 <div className="mb-4">
-                    <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                    <h2 className={cn("text-2xl font-bold mb-4 flex items-center gap-2", isDark ? "text-white" : "text-gray-900")}>
                         <Clock className="w-6 h-6" />
                         {t('history')}
                     </h2>
@@ -104,11 +108,11 @@ export default function CreditsPage() {
 
                 {loading ? (
                     <GlassCard className="p-8 text-center">
-                        <p className="text-muted">{t('loading')}</p>
+                        <p className={cn(isDark ? "text-muted" : "text-gray-500")}>{t('loading')}</p>
                     </GlassCard>
                 ) : transactions.length === 0 ? (
                     <GlassCard className="p-8 text-center">
-                        <p className="text-muted mb-4">{t('noHistory')}</p>
+                        <p className={cn("mb-4", isDark ? "text-muted" : "text-gray-500")}>{t('noHistory')}</p>
                         <Button onClick={() => router.push('/pricing')} variant="secondary">
                             {t('getStarted')}
                         </Button>
@@ -132,14 +136,14 @@ export default function CreditsPage() {
                                             )}
                                         </div>
                                         <div>
-                                            <p className="font-medium text-white">
+                                            <p className={cn("font-medium", isDark ? "text-white" : "text-gray-900")}>
                                                 {tx.type === 'purchase'
                                                     ? t('typePurchase')
                                                     : tx.type === 'deduction'
                                                         ? t('typeDeduction')
                                                         : t('typeAdjustment')}
                                             </p>
-                                            <p className="text-xs text-muted">
+                                            <p className={cn("text-xs", isDark ? "text-muted" : "text-gray-500")}>
                                                 {tx.createdAt.toLocaleDateString()} {tx.createdAt.toLocaleTimeString()}
                                             </p>
                                         </div>
