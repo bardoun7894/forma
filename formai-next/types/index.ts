@@ -35,7 +35,7 @@ export enum ModelType {
     KLING_STANDARD = 'kling/v2-1-standard',
 
     // Video models - Hailuo
-    HAILUO_PRO = 'hailuo/2-3-text-to-video-pro',
+    HAILUO_PRO = 'hailuo/02-text-to-video-pro',
 
     // Video models - Veo 3.1 (expensive)
     VEO_FAST = 'veo3_fast',

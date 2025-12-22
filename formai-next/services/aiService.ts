@@ -800,46 +800,65 @@ export const getChatSession = (model: string = 'gpt-4o-mini') => {
 
 /**
  * Generate video using Sora 2 (uses unified Market API)
- * Models: sora2/sora-2-text-to-video, sora2/sora-2-pro-text-to-video
+ * Models: sora-2-text-to-video, sora-2-pro-text-to-video
  */
 export const generateSoraVideo = async (
     prompt: string,
-    model: string = 'sora2/sora-2-text-to-video',
+    model: string = 'sora-2-text-to-video',
     aspectRatio: '16:9' | '9:16' | '1:1' = '16:9'
 ): Promise<string> => {
-    // Sora API expects 'landscape' or 'portrait'
-    const soraAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
+    try {
+        // Sora API expects 'landscape' or 'portrait'
+        const soraAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
 
-    const body = {
-        model,
-        input: {
-            prompt,
-            aspect_ratio: soraAspectRatio,
-            n_frames: '10', // 10 seconds
-            remove_watermark: true,
-        },
-    };
+        const body = {
+            model,
+            input: {
+                prompt,
+                aspect_ratio: soraAspectRatio,
+                n_frames: '10', // 10 seconds
+                remove_watermark: true,
+            },
+        };
 
-    console.log('Creating Sora task with:', JSON.stringify(body, null, 2));
+        console.log('Creating Sora task with:', JSON.stringify(body, null, 2));
 
-    const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
+        const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
 
-    if (createResponse.code !== 200) {
-        throw new Error(`Failed to create Sora video task: ${createResponse.msg}`);
+        if (createResponse.code !== 200) {
+            // Handle specific API errors
+            const errorMsg = createResponse.msg || 'Unknown error';
+            if (errorMsg.includes('page does not exist') || errorMsg.includes('not published')) {
+                throw new AIServiceError(
+                    'Sora model is temporarily unavailable. Please try Kling or Hailuo instead.',
+                    'API_ERROR'
+                );
+            }
+            throw new AIServiceError(`Sora video generation failed: ${errorMsg}`, 'API_ERROR');
+        }
+
+        // Poll using Market API endpoint
+        const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
+        const urls = extractResultUrls(taskResult.resultJson);
+
+        if (urls.length === 0) {
+            throw new AIServiceError('No video URL returned from Sora', 'API_ERROR');
+        }
+
+        return urls[0];
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Sora video generation error:', error);
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to generate Sora video',
+            'UNKNOWN'
+        );
     }
-
-    // Poll using Market API endpoint
-    const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
-    const urls = extractResultUrls(taskResult.resultJson);
-
-    if (urls.length === 0) {
-        throw new Error('No video URL returned from Sora');
-    }
-
-    return urls[0];
 };
 
 // ============================================
@@ -858,43 +877,65 @@ export const generateKlingVideo = async (
     duration: '5' | '10' = '5',
     imageUrl?: string
 ): Promise<string> => {
-    const input: any = {
-        prompt,
-        duration,
-        negative_prompt: 'blur, distort, low quality, watermark',
-        cfg_scale: 0.5,
-    };
+    try {
+        const input: any = {
+            prompt,
+            duration,
+            negative_prompt: 'blur, distort, low quality, watermark',
+            cfg_scale: 0.5,
+        };
 
-    // Add image URL for image-to-video models
-    if (imageUrl) {
-        input.image_url = imageUrl;
+        // Add image URL for image-to-video models
+        if (imageUrl) {
+            input.image_url = imageUrl;
+        }
+
+        const body = {
+            model,
+            input,
+        };
+
+        console.log('Creating Kling task with:', JSON.stringify(body, null, 2));
+
+        const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+
+        if (createResponse.code !== 200) {
+            const errorMsg = createResponse.msg || 'Unknown error';
+            if (errorMsg.includes('internal error')) {
+                throw new AIServiceError(
+                    'Kling service is temporarily unavailable. Please try again or use a different model.',
+                    'API_ERROR'
+                );
+            }
+            throw new AIServiceError(`Kling video generation failed: ${errorMsg}`, 'API_ERROR');
+        }
+
+        // Poll using Market API endpoint
+        const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
+        const urls = extractResultUrls(taskResult.resultJson);
+
+        if (urls.length === 0) {
+            throw new AIServiceError('No video URL returned from Kling', 'API_ERROR');
+        }
+
+        return urls[0];
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Kling video generation error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to generate Kling video';
+        if (errorMessage.includes('internal error')) {
+            throw new AIServiceError(
+                'Kling generation failed due to a temporary service issue. Please try again.',
+                'API_ERROR'
+            );
+        }
+        throw new AIServiceError(errorMessage, 'UNKNOWN');
     }
-
-    const body = {
-        model,
-        input,
-    };
-
-    console.log('Creating Kling task with:', JSON.stringify(body, null, 2));
-
-    const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
-
-    if (createResponse.code !== 200) {
-        throw new Error(`Failed to create Kling video task: ${createResponse.msg}`);
-    }
-
-    // Poll using Market API endpoint
-    const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
-    const urls = extractResultUrls(taskResult.resultJson);
-
-    if (urls.length === 0) {
-        throw new Error('No video URL returned from Kling');
-    }
-
-    return urls[0];
 };
 
 // ============================================
@@ -910,36 +951,59 @@ export const generateHailuoVideo = async (
     model: string = 'hailuo/02-text-to-video-pro',
     aspectRatio: '16:9' | '9:16' | '1:1' = '16:9'
 ): Promise<string> => {
-    const hailuoAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
+    try {
+        const hailuoAspectRatio = aspectRatio === '9:16' ? 'portrait' : 'landscape';
 
-    const body = {
-        model,
-        input: {
-            prompt,
-            aspect_ratio: hailuoAspectRatio,
-        },
-    };
+        const body = {
+            model,
+            input: {
+                prompt,
+                aspect_ratio: hailuoAspectRatio,
+            },
+        };
 
-    console.log('Creating Hailuo task with:', JSON.stringify(body, null, 2));
+        console.log('Creating Hailuo task with:', JSON.stringify(body, null, 2));
 
-    const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
+        const createResponse = await kieRequest<CreateTaskResponse>('/jobs/createTask', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
 
-    if (createResponse.code !== 200) {
-        throw new Error(`Failed to create Hailuo video task: ${createResponse.msg}`);
+        if (createResponse.code !== 200) {
+            const errorMsg = createResponse.msg || 'Unknown error';
+            if (errorMsg.includes('internal error')) {
+                throw new AIServiceError(
+                    'Hailuo service is temporarily unavailable. Please try again or use a different model.',
+                    'API_ERROR'
+                );
+            }
+            throw new AIServiceError(`Hailuo video generation failed: ${errorMsg}`, 'API_ERROR');
+        }
+
+        // Poll using Market API endpoint
+        const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
+        const urls = extractResultUrls(taskResult.resultJson);
+
+        if (urls.length === 0) {
+            throw new AIServiceError('No video URL returned from Hailuo', 'API_ERROR');
+        }
+
+        return urls[0];
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Hailuo video generation error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to generate Hailuo video';
+        // Handle internal errors from polling
+        if (errorMessage.includes('internal error')) {
+            throw new AIServiceError(
+                'Hailuo generation failed due to a temporary service issue. Please try again.',
+                'API_ERROR'
+            );
+        }
+        throw new AIServiceError(errorMessage, 'UNKNOWN');
     }
-
-    // Poll using Market API endpoint
-    const taskResult = await pollTaskStatus(createResponse.data.taskId, 60, 15000);
-    const urls = extractResultUrls(taskResult.resultJson);
-
-    if (urls.length === 0) {
-        throw new Error('No video URL returned from Hailuo');
-    }
-
-    return urls[0];
 };
 
 // ============================================
@@ -1305,11 +1369,11 @@ export const generateVideoUnified = async (
     console.log('generateVideoUnified called with model:', model);
 
     switch (model) {
-        // Sora models (Market API)
+        // Sora models (Market API) - correct identifiers per Kie.ai docs
         case ModelType.SORA_TEXT:
-            return generateSoraVideo(prompt, 'sora2/sora-2-text-to-video', aspectRatio);
+            return generateSoraVideo(prompt, 'sora-2-text-to-video', aspectRatio);
         case ModelType.SORA_PRO:
-            return generateSoraVideo(prompt, 'sora2/sora-2-pro-text-to-video', aspectRatio);
+            return generateSoraVideo(prompt, 'sora-2-pro-text-to-video', aspectRatio);
 
         // Kling models (Market API)
         case ModelType.KLING_PRO:
