@@ -159,83 +159,157 @@ const kieRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
     }
 };
 
-// Helper: Poll for task completion (generic jobs API)
-const pollTaskStatus = async (taskId: string, maxAttempts = 40, intervalMs = 15000): Promise<TaskStatusResponse> => { // Default: 40 attempts × 15s = 10 min max
-    for (let i = 0; i < maxAttempts; i++) {
-        const response = await kieRequest<TaskStatusResponse>(`/jobs/recordInfo?taskId=${taskId}`);
+// Error message mapping for common API errors
+const mapApiError = (errorMsg: string, modelName: string): AIServiceError => {
+    const lowerMsg = errorMsg.toLowerCase();
 
-        if (response.data?.state === 'success') {
-            return response.data;
-        } else if (response.data?.state === 'fail') {
-            throw new Error(`Task failed: ${response.data.failMsg || 'Unknown error'}`);
-        }
-
-        // Still waiting, poll again
-        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    if (lowerMsg.includes('internal error') || lowerMsg.includes('please try again')) {
+        return new AIServiceError(
+            `${modelName} service is experiencing temporary issues. Please try again in a moment.`,
+            'API_ERROR'
+        );
+    }
+    if (lowerMsg.includes('page does not exist') || lowerMsg.includes('not published')) {
+        return new AIServiceError(
+            `${modelName} model is currently unavailable. Please try a different model.`,
+            'API_ERROR'
+        );
+    }
+    if (lowerMsg.includes('insufficient') || lowerMsg.includes('credit')) {
+        return new AIServiceError(
+            'Insufficient API credits. Please check your Kie.ai account balance.',
+            'API_ERROR'
+        );
+    }
+    if (lowerMsg.includes('rate limit') || lowerMsg.includes('too many')) {
+        return new AIServiceError(
+            'Too many requests. Please wait a moment before trying again.',
+            'RATE_LIMIT'
+        );
+    }
+    if (lowerMsg.includes('content') || lowerMsg.includes('policy') || lowerMsg.includes('safety')) {
+        return new AIServiceError(
+            'Content was flagged by safety filters. Please modify your prompt and try again.',
+            'API_ERROR'
+        );
+    }
+    if (lowerMsg.includes('timeout') || lowerMsg.includes('took too long')) {
+        return new AIServiceError(
+            'Generation timed out. The service may be busy - please try again.',
+            'TIMEOUT'
+        );
     }
 
-    throw new Error('Task timeout: Generation took too long');
+    return new AIServiceError(`${modelName} error: ${errorMsg}`, 'API_ERROR');
+};
+
+// Helper: Poll for task completion (generic jobs API)
+const pollTaskStatus = async (taskId: string, maxAttempts = 40, intervalMs = 15000): Promise<TaskStatusResponse> => {
+    try {
+        for (let i = 0; i < maxAttempts; i++) {
+            const response = await kieRequest<TaskStatusResponse>(`/jobs/recordInfo?taskId=${taskId}`);
+
+            if (response.data?.state === 'success') {
+                return response.data;
+            } else if (response.data?.state === 'fail') {
+                const errorMsg = response.data.failMsg || response.data.failCode || 'Unknown error';
+                throw mapApiError(errorMsg, 'Video generation');
+            }
+
+            // Still waiting, poll again
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+
+        throw new AIServiceError(
+            'Generation is taking longer than expected. Please try again with a simpler prompt.',
+            'TIMEOUT'
+        );
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Poll task status error:', error);
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to check generation status',
+            'UNKNOWN'
+        );
+    }
 };
 
 // Helper: Poll for Veo video task completion (uses different endpoint and response structure)
 const pollVeoTaskStatus = async (taskId: string, maxAttempts = 60, intervalMs = 30000): Promise<string[]> => {
-    for (let i = 0; i < maxAttempts; i++) {
-        const response = await kieRequest<VeoStatusResponse>(`/veo/record-info?taskId=${taskId}`);
+    try {
+        for (let i = 0; i < maxAttempts; i++) {
+            const response = await kieRequest<VeoStatusResponse>(`/veo/record-info?taskId=${taskId}`);
 
-        console.log(`Veo poll attempt ${i + 1}/${maxAttempts}, response:`, JSON.stringify(response, null, 2));
+            console.log(`Veo poll attempt ${i + 1}/${maxAttempts}, response:`, JSON.stringify(response, null, 2));
 
-        if (response.code !== 200) {
-            throw new Error(`Veo status check failed: ${response.msg || 'Unknown error'}`);
-        }
-
-        const data = response.data;
-
-        // successFlag: 0=generating, 1=success, 2=failed, 3=generation failed
-        if (data.successFlag === 1) {
-            // Per Kie.ai docs: URLs are at data.response.resultUrls (primary) and data.response.originUrls (for non-16:9)
-            const responseObj = (data as any).response;
-
-            // Try response.resultUrls first (this is the correct path per API docs)
-            let resultData = responseObj?.resultUrls ||
-                            responseObj?.originUrls ||
-                            // Fallback to other possible paths
-                            data.resultUrls ||
-                            (data as any).resultUrl ||
-                            (data as any).videoUrl ||
-                            (data as any).url;
-
-            console.log('Veo success, responseObj:', JSON.stringify(responseObj, null, 2));
-            console.log('Veo success, resultData:', resultData);
-
-            if (resultData) {
-                // Handle both array and string formats
-                if (Array.isArray(resultData)) {
-                    return resultData;
-                }
-                try {
-                    const parsed = JSON.parse(resultData);
-                    if (Array.isArray(parsed)) {
-                        return parsed;
-                    }
-                    return [parsed];
-                } catch {
-                    return [resultData]; // If not JSON, treat as single URL
-                }
+            if (response.code !== 200) {
+                throw mapApiError(response.msg || 'Unknown error', 'Veo');
             }
 
-            // Log full response for debugging
-            console.error('Veo success but no URLs found. Full data:', JSON.stringify(data, null, 2));
-            throw new Error('Video generated but no URLs returned');
-        } else if (data.successFlag === 2 || data.successFlag === 3) {
-            throw new Error(`Video generation failed: ${(data as any).msg || response.msg || 'Unknown error'}`);
+            const data = response.data;
+
+            // successFlag: 0=generating, 1=success, 2=failed, 3=generation failed
+            if (data.successFlag === 1) {
+                // Per Kie.ai docs: URLs are at data.response.resultUrls (primary) and data.response.originUrls (for non-16:9)
+                const responseObj = (data as any).response;
+
+                // Try response.resultUrls first (this is the correct path per API docs)
+                let resultData = responseObj?.resultUrls ||
+                                responseObj?.originUrls ||
+                                // Fallback to other possible paths
+                                data.resultUrls ||
+                                (data as any).resultUrl ||
+                                (data as any).videoUrl ||
+                                (data as any).url;
+
+                console.log('Veo success, responseObj:', JSON.stringify(responseObj, null, 2));
+                console.log('Veo success, resultData:', resultData);
+
+                if (resultData) {
+                    // Handle both array and string formats
+                    if (Array.isArray(resultData)) {
+                        return resultData;
+                    }
+                    try {
+                        const parsed = JSON.parse(resultData);
+                        if (Array.isArray(parsed)) {
+                            return parsed;
+                        }
+                        return [parsed];
+                    } catch {
+                        return [resultData]; // If not JSON, treat as single URL
+                    }
+                }
+
+                // Log full response for debugging
+                console.error('Veo success but no URLs found. Full data:', JSON.stringify(data, null, 2));
+                throw new AIServiceError('Video generated but no download URL was returned. Please try again.', 'API_ERROR');
+            } else if (data.successFlag === 2 || data.successFlag === 3) {
+                const errorMsg = (data as any).msg || response.msg || 'Unknown error';
+                throw mapApiError(errorMsg, 'Veo');
+            }
+
+            // Still generating (successFlag === 0), poll again
+            console.log(`Video generation in progress... (attempt ${i + 1}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
         }
 
-        // Still generating (successFlag === 0), poll again
-        console.log(`Video generation in progress... (attempt ${i + 1}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, intervalMs));
+        throw new AIServiceError(
+            'Veo generation is taking longer than expected. Please try again with a simpler prompt.',
+            'TIMEOUT'
+        );
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Veo poll error:', error);
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to check Veo generation status',
+            'UNKNOWN'
+        );
     }
-
-    throw new Error('Task timeout: Video generation took too long');
 };
 
 // Helper: Extract result URLs
@@ -260,27 +334,38 @@ export const generateVideo = async (
     model: 'veo3' | 'veo3_fast' = 'veo3_fast',
     aspectRatio: '16:9' | '9:16' = '16:9'
 ): Promise<string> => {
-    const createResponse = await kieRequest<CreateTaskResponse>('/veo/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-            prompt,
-            model,
-            aspectRatio,
-        }),
-    });
+    try {
+        const createResponse = await kieRequest<CreateTaskResponse>('/veo/generate', {
+            method: 'POST',
+            body: JSON.stringify({
+                prompt,
+                model,
+                aspectRatio,
+            }),
+        });
 
-    if (createResponse.code !== 200) {
-        throw new Error(`Failed to create video task: ${createResponse.msg}`);
+        if (createResponse.code !== 200) {
+            throw mapApiError(createResponse.msg || 'Unknown error', 'Veo');
+        }
+
+        // Use Veo-specific polling (different endpoint and response structure)
+        const videoUrls = await pollVeoTaskStatus(createResponse.data.taskId);
+
+        if (videoUrls.length === 0) {
+            throw new AIServiceError('No video URL returned from Veo', 'API_ERROR');
+        }
+
+        return videoUrls[0];
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Veo video generation error:', error);
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to generate Veo video',
+            'UNKNOWN'
+        );
     }
-
-    // Use Veo-specific polling (different endpoint and response structure)
-    const videoUrls = await pollVeoTaskStatus(createResponse.data.taskId);
-
-    if (videoUrls.length === 0) {
-        throw new Error('No video URL returned');
-    }
-
-    return videoUrls[0];
 };
 
 /**
@@ -829,15 +914,7 @@ export const generateSoraVideo = async (
         });
 
         if (createResponse.code !== 200) {
-            // Handle specific API errors
-            const errorMsg = createResponse.msg || 'Unknown error';
-            if (errorMsg.includes('page does not exist') || errorMsg.includes('not published')) {
-                throw new AIServiceError(
-                    'Sora model is temporarily unavailable. Please try Kling or Hailuo instead.',
-                    'API_ERROR'
-                );
-            }
-            throw new AIServiceError(`Sora video generation failed: ${errorMsg}`, 'API_ERROR');
+            throw mapApiError(createResponse.msg || 'Unknown error', 'Sora');
         }
 
         // Poll using Market API endpoint
@@ -903,14 +980,7 @@ export const generateKlingVideo = async (
         });
 
         if (createResponse.code !== 200) {
-            const errorMsg = createResponse.msg || 'Unknown error';
-            if (errorMsg.includes('internal error')) {
-                throw new AIServiceError(
-                    'Kling service is temporarily unavailable. Please try again or use a different model.',
-                    'API_ERROR'
-                );
-            }
-            throw new AIServiceError(`Kling video generation failed: ${errorMsg}`, 'API_ERROR');
+            throw mapApiError(createResponse.msg || 'Unknown error', 'Kling');
         }
 
         // Poll using Market API endpoint
@@ -927,14 +997,10 @@ export const generateKlingVideo = async (
             throw error;
         }
         console.error('Kling video generation error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to generate Kling video';
-        if (errorMessage.includes('internal error')) {
-            throw new AIServiceError(
-                'Kling generation failed due to a temporary service issue. Please try again.',
-                'API_ERROR'
-            );
-        }
-        throw new AIServiceError(errorMessage, 'UNKNOWN');
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to generate Kling video',
+            'UNKNOWN'
+        );
     }
 };
 
@@ -970,14 +1036,7 @@ export const generateHailuoVideo = async (
         });
 
         if (createResponse.code !== 200) {
-            const errorMsg = createResponse.msg || 'Unknown error';
-            if (errorMsg.includes('internal error')) {
-                throw new AIServiceError(
-                    'Hailuo service is temporarily unavailable. Please try again or use a different model.',
-                    'API_ERROR'
-                );
-            }
-            throw new AIServiceError(`Hailuo video generation failed: ${errorMsg}`, 'API_ERROR');
+            throw mapApiError(createResponse.msg || 'Unknown error', 'Hailuo');
         }
 
         // Poll using Market API endpoint
@@ -994,15 +1053,10 @@ export const generateHailuoVideo = async (
             throw error;
         }
         console.error('Hailuo video generation error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to generate Hailuo video';
-        // Handle internal errors from polling
-        if (errorMessage.includes('internal error')) {
-            throw new AIServiceError(
-                'Hailuo generation failed due to a temporary service issue. Please try again.',
-                'API_ERROR'
-            );
-        }
-        throw new AIServiceError(errorMessage, 'UNKNOWN');
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to generate Hailuo video',
+            'UNKNOWN'
+        );
     }
 };
 
@@ -1013,34 +1067,49 @@ export const generateHailuoVideo = async (
 /**
  * Poll Runway task status
  */
-const pollRunwayTaskStatus = async (taskId: string, maxAttempts = 20, intervalMs = 30000): Promise<string[]> => { // 20 attempts × 30s = 10 min max (per Kie.ai docs)
-    for (let i = 0; i < maxAttempts; i++) {
-        const response = await kieRequest<RunwayStatusResponse>(`/runway/record-detail?taskId=${taskId}`);
+const pollRunwayTaskStatus = async (taskId: string, maxAttempts = 20, intervalMs = 30000): Promise<string[]> => {
+    try {
+        for (let i = 0; i < maxAttempts; i++) {
+            const response = await kieRequest<RunwayStatusResponse>(`/runway/record-detail?taskId=${taskId}`);
 
-        if (response.code !== 200) {
-            throw new Error(`Runway status check failed: ${response.msg || 'Unknown error'}`);
-        }
-
-        const data = response.data;
-
-        if (data.successFlag === 1) {
-            if (data.resultUrls) {
-                try {
-                    return JSON.parse(data.resultUrls);
-                } catch {
-                    return [data.resultUrls];
-                }
+            if (response.code !== 200) {
+                throw mapApiError(response.msg || 'Unknown error', 'Runway');
             }
-            throw new Error('Video generated but no URLs returned');
-        } else if (data.successFlag === 2 || data.successFlag === 3) {
-            throw new Error(`Runway video generation failed: ${data.msg || 'Unknown error'}`);
+
+            const data = response.data;
+
+            if (data.successFlag === 1) {
+                if (data.resultUrls) {
+                    try {
+                        return JSON.parse(data.resultUrls);
+                    } catch {
+                        return [data.resultUrls];
+                    }
+                }
+                throw new AIServiceError('Runway video generated but no download URL was returned.', 'API_ERROR');
+            } else if (data.successFlag === 2 || data.successFlag === 3) {
+                const errorMsg = data.msg || 'Unknown error';
+                throw mapApiError(errorMsg, 'Runway');
+            }
+
+            console.log(`Runway generation in progress... (attempt ${i + 1}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
         }
 
-        console.log(`Runway generation in progress... (attempt ${i + 1}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, intervalMs));
+        throw new AIServiceError(
+            'Runway generation is taking longer than expected. Please try again.',
+            'TIMEOUT'
+        );
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Runway poll error:', error);
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to check Runway generation status',
+            'UNKNOWN'
+        );
     }
-
-    throw new Error('Runway task timeout');
 };
 
 /**
@@ -1057,39 +1126,50 @@ export const generateRunwayVideo = async (
     imageUrl?: string,
     quality: '720p' | '1080p' = '720p'
 ): Promise<string> => {
-    // 10s duration not available with 1080p
-    const finalQuality = duration === 10 ? '720p' : quality;
+    try {
+        // 10s duration not available with 1080p
+        const finalQuality = duration === 10 ? '720p' : quality;
 
-    const body: any = {
-        prompt,
-        aspectRatio,
-        duration: String(duration), // API expects string
-        quality: finalQuality,
-        waterMark: '', // No watermark
-    };
+        const body: any = {
+            prompt,
+            aspectRatio,
+            duration: String(duration), // API expects string
+            quality: finalQuality,
+            waterMark: '', // No watermark
+        };
 
-    if (imageUrl) {
-        body.imageUrl = imageUrl;
+        if (imageUrl) {
+            body.imageUrl = imageUrl;
+        }
+
+        console.log('Creating Runway task with:', JSON.stringify(body, null, 2));
+
+        const createResponse = await kieRequest<CreateTaskResponse>('/runway/generate', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+
+        if (createResponse.code !== 200) {
+            throw mapApiError(createResponse.msg || 'Unknown error', 'Runway');
+        }
+
+        const videoUrls = await pollRunwayTaskStatus(createResponse.data.taskId);
+
+        if (videoUrls.length === 0) {
+            throw new AIServiceError('No video URL returned from Runway', 'API_ERROR');
+        }
+
+        return videoUrls[0];
+    } catch (error) {
+        if (error instanceof AIServiceError) {
+            throw error;
+        }
+        console.error('Runway video generation error:', error);
+        throw new AIServiceError(
+            error instanceof Error ? error.message : 'Failed to generate Runway video',
+            'UNKNOWN'
+        );
     }
-
-    console.log('Creating Runway task with:', JSON.stringify(body, null, 2));
-
-    const createResponse = await kieRequest<CreateTaskResponse>('/runway/generate', {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
-
-    if (createResponse.code !== 200) {
-        throw new Error(`Failed to create Runway video task: ${createResponse.msg}`);
-    }
-
-    const videoUrls = await pollRunwayTaskStatus(createResponse.data.taskId);
-
-    if (videoUrls.length === 0) {
-        throw new Error('No video URL returned from Runway');
-    }
-
-    return videoUrls[0];
 };
 
 // ============================================
